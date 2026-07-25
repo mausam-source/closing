@@ -1,0 +1,1029 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Blocking Received — Case Protocol</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Zilla+Slab:wght@500;600;700&family=Inter:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --paper:#EFEAE0;
+    --paper-dim:#E4DECF;
+    --ink:#1F2A24;
+    --ink-soft:#5B6259;
+    --brass:#A6752C;
+    --brass-dark:#7C5620;
+    --moss:#4B6B4B;
+    --rust:#B5482F;
+    --line:#C8C1B0;
+    --card:#F7F4EC;
+  }
+
+  *{box-sizing:border-box;}
+  html,body{margin:0;padding:0;}
+  body{
+    background:var(--paper);
+    color:var(--ink);
+    font-family:'Inter',sans-serif;
+    min-height:100vh;
+    padding:48px 20px 80px;
+  }
+
+  .wrap{max-width:760px;margin:0 auto;}
+
+  .eyebrow{
+    font-family:'IBM Plex Mono',monospace;
+    font-size:12px;
+    letter-spacing:0.14em;
+    text-transform:uppercase;
+    color:var(--brass-dark);
+    margin:0 0 10px;
+  }
+
+  h1{
+    font-family:'Zilla Slab',serif;
+    font-weight:700;
+    font-size:38px;
+    line-height:1.08;
+    margin:0 0 14px;
+    letter-spacing:-0.01em;
+  }
+
+  .subtitle{
+    font-size:15px;
+    color:var(--ink-soft);
+    max-width:520px;
+    line-height:1.55;
+    margin:0 0 30px;
+  }
+
+  .test-toggle{
+    display:flex;
+    align-items:center;
+    gap:8px;
+    font-family:'IBM Plex Mono',monospace;
+    font-size:12px;
+    color:var(--ink-soft);
+    margin-bottom:10px;
+    cursor:pointer;
+    user-select:none;
+  }
+  .test-toggle input{width:15px;height:15px;accent-color:var(--rust);}
+
+  .tally{
+    display:flex;
+    align-items:center;
+    gap:14px;
+    font-family:'IBM Plex Mono',monospace;
+    font-size:13px;
+    color:var(--ink-soft);
+    margin-bottom:42px;
+    padding-bottom:20px;
+    border-bottom:1px solid var(--line);
+  }
+  .tally-bar{
+    flex:1;
+    height:4px;
+    background:var(--line);
+    border-radius:2px;
+    overflow:hidden;
+  }
+  .tally-fill{
+    height:100%;
+    background:var(--moss);
+    width:0%;
+    transition:width .5s cubic-bezier(.4,0,.2,1);
+  }
+
+  .case{position:relative; padding-left:64px;}
+
+  .thread{
+    position:absolute;
+    left:23px;
+    top:6px;
+    bottom:6px;
+    width:2px;
+    background-image:linear-gradient(var(--line) 60%, transparent 0%);
+    background-size:2px 10px;
+    background-repeat:repeat-y;
+  }
+
+  .step{
+    position:relative;
+    margin-bottom:18px;
+    background:var(--card);
+    border:1px solid var(--line);
+    border-radius:6px;
+    transition:opacity .3s ease, transform .3s ease;
+  }
+
+  .step.locked{opacity:0.55;}
+
+  .seal{
+    position:absolute;
+    left:-64px;
+    top:22px;
+    width:46px;
+    height:46px;
+    border-radius:50%;
+    background:var(--paper-dim);
+    border:2px solid var(--line);
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    font-family:'Zilla Slab',serif;
+    font-weight:700;
+    font-size:18px;
+    color:var(--ink-soft);
+    z-index:2;
+    transition:all .35s cubic-bezier(.34,1.56,.64,1);
+  }
+
+  .seal.active{
+    background:var(--card);
+    border-color:var(--brass);
+    color:var(--brass-dark);
+    box-shadow:0 0 0 5px rgba(166,117,44,0.12);
+  }
+
+  .seal.done{
+    background:var(--brass);
+    border-color:var(--brass-dark);
+    color:var(--card);
+    transform:rotate(-8deg) scale(1.05);
+  }
+
+  .step-head{
+    padding:20px 22px 18px;
+    cursor:pointer;
+    display:flex;
+    justify-content:space-between;
+    align-items:flex-start;
+    gap:12px;
+  }
+
+  .step-head .label-wrap{flex:1;}
+
+  .stage-tag{
+    font-family:'IBM Plex Mono',monospace;
+    font-size:11px;
+    letter-spacing:.1em;
+    text-transform:uppercase;
+    color:var(--brass-dark);
+    margin-bottom:6px;
+    display:block;
+  }
+
+  .step.done .stage-tag{color:var(--moss);}
+
+  .step-title{
+    font-family:'Zilla Slab',serif;
+    font-weight:600;
+    font-size:20px;
+    margin:0;
+    line-height:1.25;
+  }
+
+  .chevron{
+    font-family:'IBM Plex Mono',monospace;
+    color:var(--ink-soft);
+    font-size:14px;
+    margin-top:4px;
+    transition:transform .25s ease;
+    user-select:none;
+  }
+
+  .step.open .chevron{transform:rotate(90deg);}
+
+  .step-body{
+    max-height:0;
+    overflow:hidden;
+    transition:max-height .35s ease;
+  }
+
+  .step.open .step-body{max-height:900px;}
+
+  .step-body-inner{
+    padding:0 22px 22px;
+    border-top:1px solid var(--line);
+    padding-top:16px;
+  }
+
+  .instruction{
+    font-size:14.5px;
+    line-height:1.6;
+    color:var(--ink);
+    margin:0 0 14px;
+  }
+
+  .auto-badge{
+    display:inline-flex;
+    align-items:center;
+    gap:6px;
+    font-family:'IBM Plex Mono',monospace;
+    font-size:11.5px;
+    color:var(--ink-soft);
+    background:var(--paper-dim);
+    border:1px solid var(--line);
+    border-radius:20px;
+    padding:5px 12px;
+    margin:0 8px 8px 0;
+  }
+  .auto-badge::before{content:"⚙";color:var(--brass-dark);}
+
+  .field-list{
+    list-style:none;
+    margin:6px 0 16px;
+    padding:0;
+    display:grid;
+    gap:8px;
+  }
+  .field-list li{
+    display:flex;
+    align-items:center;
+    gap:10px;
+    font-size:14px;
+    padding:9px 12px;
+    background:var(--paper);
+    border:1px solid var(--line);
+    border-radius:5px;
+  }
+  .field-list li input[type=checkbox]{
+    width:16px;height:16px;accent-color:var(--brass);flex-shrink:0;
+  }
+  .field-list li.checked{text-decoration:line-through;color:var(--ink-soft);}
+
+  .action-row{
+    display:flex;
+    gap:10px;
+    flex-wrap:wrap;
+    align-items:center;
+    margin-top:4px;
+  }
+
+  .btn{
+    font-family:'Inter',sans-serif;
+    font-weight:600;
+    font-size:13.5px;
+    padding:10px 16px;
+    border-radius:5px;
+    border:1px solid var(--brass);
+    background:transparent;
+    color:var(--brass-dark);
+    cursor:pointer;
+    text-decoration:none;
+    display:inline-flex;
+    align-items:center;
+    gap:6px;
+    transition:all .2s ease;
+  }
+  .btn:hover{background:var(--brass);color:var(--card);}
+
+  .btn-seal{
+    background:var(--ink);
+    border-color:var(--ink);
+    color:var(--paper);
+  }
+  .btn-seal:hover{background:var(--moss);border-color:var(--moss);}
+
+  .btn-seal.done{
+    background:var(--moss);
+    border-color:var(--moss);
+    color:var(--paper);
+  }
+
+  .note{
+    font-family:'IBM Plex Mono',monospace;
+    font-size:12px;
+    color:var(--rust);
+    margin-top:10px;
+    line-height:1.5;
+  }
+
+  .warn-banner{
+    display:flex;
+    gap:10px;
+    align-items:flex-start;
+    background:rgba(181,72,47,0.08);
+    border:1px solid rgba(181,72,47,0.35);
+    border-radius:5px;
+    padding:10px 13px;
+    margin-bottom:16px;
+    font-size:12.5px;
+    line-height:1.5;
+    color:var(--rust);
+  }
+  .warn-banner::before{content:"⚠";flex-shrink:0;font-size:14px;line-height:1.3;}
+
+  .zoho-search{display:flex;gap:8px;margin:4px 0 14px;}
+  .zoho-search input{flex:1;}
+
+  input[type=text], input[type=date]{
+    font-family:'Inter',sans-serif;
+    font-size:13.5px;
+    padding:9px 11px;
+    border:1px solid var(--line);
+    border-radius:5px;
+    background:var(--paper);
+    color:var(--ink);
+  }
+  input[type=text]:focus, input[type=date]:focus{outline:2px solid var(--brass);outline-offset:1px;}
+
+  .deal-result-item{
+    display:flex;
+    justify-content:space-between;
+    align-items:center;
+    gap:10px;
+    padding:10px 12px;
+    border:1px solid var(--line);
+    border-radius:5px;
+    margin-bottom:6px;
+    cursor:pointer;
+    background:var(--paper);
+    font-size:13.5px;
+    transition:border-color .15s ease;
+  }
+  .deal-result-item:hover{border-color:var(--brass);}
+  .deal-result-item span{font-family:'IBM Plex Mono',monospace;font-size:11px;color:var(--ink-soft);white-space:nowrap;}
+
+  .deal-picked{
+    font-family:'IBM Plex Mono',monospace;
+    font-size:12.5px;
+    color:var(--brass-dark);
+    margin-bottom:12px;
+    padding-bottom:10px;
+    border-bottom:1px dashed var(--line);
+  }
+
+  .field-grid{
+    display:grid;
+    grid-template-columns:1fr 1fr;
+    gap:12px;
+    margin:4px 0 16px;
+  }
+  .field-grid label{
+    font-size:12px;
+    color:var(--ink-soft);
+    display:flex;
+    flex-direction:column;
+    gap:5px;
+  }
+
+  #saveStatus2 p{margin:10px 0 0;}
+
+  @media (max-width:600px){
+    .field-grid{grid-template-columns:1fr;}
+  }
+
+  .drop-zone{
+    border:1.5px dashed var(--line);
+    border-radius:6px;
+    padding:16px;
+    margin:12px 0;
+    cursor:pointer;
+    text-align:center;
+    transition:border-color .15s ease, background .15s ease;
+  }
+  .drop-zone:hover, .drop-zone.dragover{
+    border-color:var(--brass);
+    background:var(--paper-dim);
+  }
+
+  .receipt-card{
+    margin:10px 0 4px;
+    padding:12px 14px;
+    background:var(--paper);
+    border:1px solid var(--moss);
+    border-radius:6px;
+    font-size:13px;
+  }
+  .receipt-card dl{
+    display:grid;
+    grid-template-columns:auto 1fr;
+    gap:4px 10px;
+    margin:0 0 10px;
+  }
+  .receipt-card dt{color:var(--ink-soft);font-family:'IBM Plex Mono',monospace;font-size:11.5px;}
+  .receipt-card dd{margin:0;font-weight:500;}
+
+  .footer-note{
+    margin-top:38px;
+    padding-top:20px;
+    border-top:1px solid var(--line);
+    font-size:12.5px;
+    color:var(--ink-soft);
+    line-height:1.6;
+  }
+
+  .stamp-final{
+    text-align:center;
+    padding:30px 20px;
+    display:none;
+  }
+  .stamp-final.show{display:block;}
+  .stamp-final .ring{
+    display:inline-flex;
+    align-items:center;
+    justify-content:center;
+    width:96px;height:96px;
+    border-radius:50%;
+    border:3px solid var(--moss);
+    color:var(--moss);
+    font-family:'Zilla Slab',serif;
+    font-weight:700;
+    font-size:13px;
+    letter-spacing:.05em;
+    text-transform:uppercase;
+    transform:rotate(-6deg);
+    margin-bottom:14px;
+  }
+  .stamp-final p{font-family:'Zilla Slab',serif;font-size:18px;margin:0;color:var(--ink);}
+
+  @media (max-width:600px){
+    .case{padding-left:50px;}
+    .thread{left:17px;}
+    .seal{left:-50px;width:36px;height:36px;font-size:15px;top:20px;}
+    h1{font-size:30px;}
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <p class="eyebrow">Buyer Experience · Case Protocol</p>
+  <h1>Blocking Received</h1>
+  <p class="subtitle">Four stages, in order. Open a stage, do the action, seal it, move to the next. Nothing to remember — just what's in front of you.</p>
+
+  <label class="test-toggle">
+    <input type="checkbox" id="testModeToggle" onchange="toggleTestMode()">
+    Test mode — click through stages without sending to Slack or writing to Zoho
+  </label>
+  <div id="testModeBanner" class="warn-banner" style="display:none;">Test mode is on — nothing sent to Slack or written to Zoho will actually go through.</div>
+
+  <div class="tally">
+    <span id="tallyText">0 of 4 sealed</span>
+    <div class="tally-bar"><div class="tally-fill" id="tallyFill"></div></div>
+  </div>
+
+  <div class="case">
+    <div class="thread"></div>
+
+    <!-- STEP 1 -->
+    <div class="step open" data-step="1">
+      <div class="seal active" data-seal="1">1</div>
+      <div class="step-head" onclick="toggleStep(1)">
+        <div class="label-wrap">
+          <span class="stage-tag">Stage 01 · Intake</span>
+          <h3 class="step-title">Log the blocking</h3>
+        </div>
+        <span class="chevron">›</span>
+      </div>
+      <div class="step-body">
+        <div class="step-body-inner">
+          <p class="instruction">Let's confirm the blocking with finance.</p>
+
+          <div class="warn-banner">This posts a real message to your live #finance Slack channel — check the text before sending.</div>
+          <p class="instruction">Write a quick note to Finance with the buyer, property, and blocking amount, then send it for payment confirmation.</p>
+
+          <textarea id="slackMessage1" rows="6" oninput="onSlackMessageChange()" style="width:100%;font-family:'Inter',sans-serif;font-size:13.5px;padding:10px 12px;border:1px solid var(--line);border-radius:5px;background:var(--paper);color:var(--ink);resize:vertical;">🔔 New blocking received
+Buyer: [buyer name]
+Property: [property]
+Blocking amount: ₹[amount]
+
+Could Finance confirm the payment has been received?</textarea>
+
+          <div class="drop-zone" id="dropZone1" onclick="document.getElementById('fileInput1').click()">
+            <p style="margin:0;font-size:13px;color:var(--ink-soft);">Drop the payment screenshot here, or click to browse — I'll read the transaction ID and amount off it and add them to the message. The image itself is never uploaded anywhere.</p>
+            <input type="file" id="fileInput1" accept="image/*" style="display:none;" onchange="handleScreenshot(this.files[0])">
+          </div>
+          <div id="screenshotStatus1"></div>
+          <div id="screenshotResult1" style="display:none;"></div>
+
+          <div class="action-row">
+            <button class="btn-seal btn" onclick="sendSlackMessage()" id="sealBtn1">Send to #finance</button>
+          </div>
+          <div id="slackStatus1"></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- STEP 2 -->
+    <div class="step locked" data-step="2">
+      <div class="seal" data-seal="2">2</div>
+      <div class="step-head" onclick="toggleStep(2)">
+        <div class="label-wrap">
+          <span class="stage-tag">Stage 02 · Zoho update</span>
+          <h3 class="step-title">Set the bid stage &amp; capture commercial details</h3>
+        </div>
+        <span class="chevron">›</span>
+      </div>
+      <div class="step-body">
+        <div class="step-body-inner">
+          <div class="warn-banner">This writes directly to a live deal in Zoho. Confirm write access with your admin, and test on one non-critical deal before trusting this in production.</div>
+          <p class="instruction">Find the deal, then update its bid stage to <strong>"Blocking Received"</strong> and fill in the commercial details — this saves straight to the Zoho record.</p>
+
+          <div class="zoho-search">
+            <input type="text" id="dealQuery" placeholder="Search by buyer name, phone, or property">
+            <button class="btn" onclick="searchDeal()">Find deal</button>
+          </div>
+          <div id="dealResults"></div>
+
+          <div id="dealForm" style="display:none;">
+            <div class="deal-picked" id="dealPickedLabel"></div>
+            <div class="field-grid">
+              <label>Buyer-side brokerage (₹ INR) <input type="number" step="0.01" min="0" inputmode="decimal" id="f_brokerage" placeholder="0.00" oninput="onField2Change()"></label>
+              <label>Blocking amount (₹ INR) <input type="number" step="0.01" min="0" inputmode="decimal" id="f_amount" placeholder="0.00" oninput="onField2Change()"></label>
+              <label>Blocking received date <input type="date" id="f_date" oninput="onField2Change()"></label>
+              <label>Selling price (₹ INR) <input type="number" step="1" min="0" inputmode="numeric" id="f_selling" placeholder="0" oninput="onField2Change()"></label>
+              <label>Buyer invoice amount incl. GST (₹ INR) <input type="number" step="0.01" min="0" inputmode="decimal" id="f_buyerinv" placeholder="0.00" oninput="onField2Change()"></label>
+              <label>Seller invoice amount incl. GST (₹ INR) <input type="number" step="0.01" min="0" inputmode="decimal" id="f_sellerinv" placeholder="0.00" oninput="onField2Change()"></label>
+            </div>
+            <div class="action-row">
+              <button class="btn-seal btn" onclick="saveDeal()" id="sealBtn2">Save Stage as Blocking Received</button>
+            </div>
+            <div id="saveStatus2"></div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- STEP 3 -->
+    <div class="step locked" data-step="3">
+      <div class="seal" data-seal="3">3</div>
+      <div class="step-head" onclick="toggleStep(3)">
+        <div class="label-wrap">
+          <span class="stage-tag">Stage 03 · Alignment</span>
+          <h3 class="step-title">Send the MoU draft to the buyer</h3>
+        </div>
+        <span class="chevron">›</span>
+      </div>
+      <div class="step-body">
+        <div class="step-body-inner">
+          <p class="instruction">Find this property in Airtable, then send its seller-approved MoU draft to the buyer for alignment. Wait for the buyer to confirm before moving on.</p>
+
+          <div class="zoho-search">
+            <input type="text" id="mouQuery3" placeholder="Search by property or buyer name">
+            <button class="btn" onclick="searchMouRecord()">Find property</button>
+          </div>
+          <div id="mouResults3"></div>
+
+          <div id="mouForm3" style="display:none;">
+            <div class="deal-picked" id="mouPickedLabel"></div>
+            <div id="mouLinkDisplay3"></div>
+          </div>
+
+          <div class="action-row" style="margin-top:14px;">
+            <button class="btn-seal btn" onclick="sealStep(3)" id="sealBtn3">Mark stage sealed</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- STEP 4 -->
+    <div class="step locked" data-step="4">
+      <div class="seal" data-seal="4">4</div>
+      <div class="step-head" onclick="toggleStep(4)">
+        <div class="label-wrap">
+          <span class="stage-tag">Stage 04 · Handover</span>
+          <h3 class="step-title">Fill the BEX handover form</h3>
+        </div>
+        <span class="chevron">›</span>
+      </div>
+      <div class="step-body">
+        <div class="step-body-inner">
+          <p class="instruction">Once the buyer has confirmed alignment on the MoU, close out this case by filling the BEX handover form.</p>
+          <div class="action-row">
+            <a class="btn" href="https://web.miniextensions.com/Sskhnl5Y0IM4yh36PWCN/rec01MGbJv0Qs9YyP" target="_blank">Open handover form ↗</a>
+            <button class="btn-seal btn" onclick="sealStep(4)" id="sealBtn4">Mark stage sealed</button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="stamp-final" id="finalStamp">
+    <div class="ring">Case<br>Sealed</div>
+    <p>All four stages complete. This blocking is fully handed over.</p>
+  </div>
+
+  <div class="footer-note">
+    Your progress on this case is saved automatically — close the tab and come back, and it'll pick up right where you left off. Once a case is fully handed over, start the next one fresh below.
+    <div class="action-row" style="margin-top:12px;">
+      <button class="btn" onclick="startNewCase()">Start new case</button>
+    </div>
+  </div>
+</div>
+
+<script>
+  let caseState = {
+    sealed: {1:false, 2:false, 3:false, 4:false},
+    slackMessage: null,
+    pickedDeal: null,
+    fields2: { brokerage:'', amount:'', date:'', selling:'', buyerinv:'', sellerinv:'' },
+    testMode: false,
+    mouRecord: null
+  };
+  let saveTimeout = null;
+
+  function toggleTestMode(){
+    caseState.testMode = document.getElementById('testModeToggle').checked;
+    document.getElementById('testModeBanner').style.display = caseState.testMode ? 'flex' : 'none';
+    scheduleSave();
+  }
+
+  function scheduleSave(){
+    clearTimeout(saveTimeout);
+    saveTimeout = setTimeout(saveState, 600);
+  }
+
+  async function saveState(){
+    try{
+      await window.storage.set('bex-current-case', JSON.stringify(caseState), false);
+    }catch(err){ console.error('Save failed', err); }
+  }
+
+  async function loadState(){
+    try{
+      const res = await window.storage.get('bex-current-case', false);
+      if(res && res.value){
+        const loaded = JSON.parse(res.value);
+        caseState = Object.assign(caseState, loaded);
+        applyState();
+      }
+    }catch(err){
+      // no saved case yet — that's fine, start fresh
+    }
+  }
+
+  function applyState(){
+    document.getElementById('testModeToggle').checked = !!caseState.testMode;
+    document.getElementById('testModeBanner').style.display = caseState.testMode ? 'flex' : 'none';
+    if(caseState.slackMessage){
+      document.getElementById('slackMessage1').value = caseState.slackMessage;
+    }
+    if(caseState.pickedDeal){
+      pickedDeal = caseState.pickedDeal;
+      document.getElementById('dealForm').style.display = 'block';
+      document.getElementById('dealPickedLabel').textContent = 'Editing: ' + (pickedDeal.Deal_Name || pickedDeal.id);
+    }
+    if(caseState.mouRecord){
+      pickMouRecord(caseState.mouRecord);
+    }
+    const f = caseState.fields2 || {};
+    document.getElementById('f_brokerage').value = f.brokerage || '';
+    document.getElementById('f_amount').value = f.amount || '';
+    document.getElementById('f_date').value = f.date || '';
+    document.getElementById('f_selling').value = f.selling || '';
+    document.getElementById('f_buyerinv').value = f.buyerinv || '';
+    document.getElementById('f_sellerinv').value = f.sellerinv || '';
+
+    for(let n = 1; n <= 4; n++){
+      if(caseState.sealed[n]) sealStep(n, true);
+    }
+    updateTally();
+  }
+
+  function onSlackMessageChange(){
+    caseState.slackMessage = document.getElementById('slackMessage1').value;
+    scheduleSave();
+  }
+
+  function onField2Change(){
+    caseState.fields2 = {
+      brokerage: document.getElementById('f_brokerage').value,
+      amount: document.getElementById('f_amount').value,
+      date: document.getElementById('f_date').value,
+      selling: document.getElementById('f_selling').value,
+      buyerinv: document.getElementById('f_buyerinv').value,
+      sellerinv: document.getElementById('f_sellerinv').value
+    };
+    scheduleSave();
+  }
+
+  async function startNewCase(){
+    if(!confirm('Clear this case and start fresh? This can\'t be undone.')) return;
+    try{ await window.storage.delete('bex-current-case', false); }catch(err){}
+    location.reload();
+  }
+
+  function toggleStep(n){
+    const step = document.querySelector('.step[data-step="'+n+'"]');
+    if(step.classList.contains('locked')) return;
+    document.querySelectorAll('.step').forEach(s=>{
+      if(s !== step) s.classList.remove('open');
+    });
+    step.classList.toggle('open');
+  }
+
+  let pickedDeal = null;
+
+  async function callClaude(promptText, servers){
+    const response = await fetch("https://api.anthropic.com/v1/messages", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        model: "claude-sonnet-4-6",
+        max_tokens: 1000,
+        messages: [{ role: "user", content: promptText }],
+        mcp_servers: servers || [{ type: "url", url: "https://claude-zohocrm.zohomcp.in/mcp/message", name: "zoho-crm" }]
+      })
+    });
+    const data = await response.json();
+    return (data.content || []).filter(b => b.type === "text").map(b => b.text).join("\n");
+  }
+
+  let lastExtracted = null;
+  const SLACK_SERVER = [{ type: "url", url: "https://mcp.slack.com/mcp", name: "slack" }];
+  const AIRTABLE_SERVER = [{ type: "url", url: "https://mcp.airtable.com/mcp", name: "airtable" }];
+
+  async function searchMouRecord(){
+    const q = document.getElementById('mouQuery3').value.trim();
+    const resultsDiv = document.getElementById('mouResults3');
+    if(!q){
+      resultsDiv.innerHTML = '<p class="note">Type a property or buyer name to search.</p>';
+      return;
+    }
+    resultsDiv.innerHTML = '<p class="note">Searching Airtable…</p>';
+    try{
+      const prompt = 'You have access to an Airtable MCP connection. In the "Closing CRM" table (tableId "tblRiQPp4L3KcsQx4") of the "Home Loans CRM" base (baseId "appfpELkqjpJ0wfZ2"), search for records where the "Property" field or "Buyer\'s name" field contains or matches: "' + q + '". Return up to 5 matches. For each, include: id, the "Property" field value, the "Buyer\'s name" field value, and the value of the field named "Tri Party MoU Draft Link". Respond with ONLY a raw JSON array of objects with keys: id, Property, BuyerName, MouLink. Use null for anything not present. No markdown, no code fences, no explanation. If nothing matches, return [].';
+      const text = await callClaude(prompt, AIRTABLE_SERVER);
+      const parsed = JSON.parse(cleanJSON(text));
+      if(!Array.isArray(parsed) || parsed.length === 0){
+        resultsDiv.innerHTML = '<p class="note">No matching properties found. Try a different search.</p>';
+        return;
+      }
+      resultsDiv.innerHTML = '';
+      parsed.forEach(r => {
+        const item = document.createElement('div');
+        item.className = 'deal-result-item';
+        item.innerHTML = '<strong>' + (r.Property || '(no property)') + '</strong><span>' + (r.BuyerName || '—') + '</span>';
+        item.onclick = () => pickMouRecord(r);
+        resultsDiv.appendChild(item);
+      });
+    }catch(err){
+      resultsDiv.innerHTML = '<p class="note">Couldn\'t reach Airtable to search. Try again.</p>';
+      console.error(err);
+    }
+  }
+
+  function pickMouRecord(record){
+    caseState.mouRecord = record;
+    document.getElementById('mouForm3').style.display = 'block';
+    document.getElementById('mouPickedLabel').textContent = 'Property: ' + (record.Property || record.id) + (record.BuyerName ? ' · ' + record.BuyerName : '');
+    const linkDiv = document.getElementById('mouLinkDisplay3');
+    if(record.MouLink){
+      linkDiv.innerHTML = '<a class="btn" href="' + record.MouLink + '" target="_blank">Open MoU draft ↗</a>';
+    } else {
+      linkDiv.innerHTML = '<p class="note">No MoU draft link on this record yet — check with the Closing team before sending anything to the buyer.</p>';
+    }
+    document.getElementById('mouResults3').innerHTML = '';
+    scheduleSave();
+  }
+
+  function fileToBase64(file){
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onload = () => resolve(reader.result.split(',')[1]);
+      reader.onerror = reject;
+      reader.readAsDataURL(file);
+    });
+  }
+
+  async function handleScreenshot(file){
+    if(!file) return;
+    const statusDiv = document.getElementById('screenshotStatus1');
+    const resultDiv = document.getElementById('screenshotResult1');
+    resultDiv.style.display = 'none';
+    statusDiv.innerHTML = '<p class="note">Reading screenshot…</p>';
+    try{
+      const base64 = await fileToBase64(file);
+      const response = await fetch("https://api.anthropic.com/v1/messages", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          model: "claude-sonnet-4-6",
+          max_tokens: 1000,
+          messages: [{
+            role: "user",
+            content: [
+              { type: "image", source: { type: "base64", media_type: file.type || "image/png", data: base64 } },
+              { type: "text", text: "This is a payment confirmation screenshot (UPI, bank app, or similar). Extract: transactionId (the UPI/bank/reference transaction ID — prefer the primary one, e.g. UPI transaction ID or Tr. ID), amount (numeric, no currency symbol or commas), payer (the sender's name), date (as shown). Respond with ONLY a raw JSON object: {\"transactionId\": \"...\", \"amount\": \"...\", \"payer\": \"...\", \"date\": \"...\"}. Use null for anything not visible. No markdown, no explanation, nothing outside the JSON." }
+            ]
+          }]
+        })
+      });
+      const data = await response.json();
+      const text = (data.content || []).filter(b => b.type === 'text').map(b => b.text).join('\n');
+      const parsed = JSON.parse(cleanJSON(text));
+      lastExtracted = parsed;
+      statusDiv.innerHTML = '';
+      resultDiv.style.display = 'block';
+      resultDiv.innerHTML =
+        '<div class="receipt-card"><dl>' +
+        '<dt>Transaction ID</dt><dd>' + (parsed.transactionId || '—') + '</dd>' +
+        '<dt>Amount</dt><dd>' + (parsed.amount ? '₹' + parsed.amount : '—') + '</dd>' +
+        '<dt>Payer</dt><dd>' + (parsed.payer || '—') + '</dd>' +
+        '<dt>Date</dt><dd>' + (parsed.date || '—') + '</dd>' +
+        '</dl><button class="btn" onclick="insertExtracted()">Add to message</button></div>';
+    }catch(err){
+      statusDiv.innerHTML = '<p class="note">Couldn\'t read that screenshot. Try a clearer image, or type the transaction ID in manually.</p>';
+      console.error(err);
+    }
+  }
+
+  function insertExtracted(){
+    if(!lastExtracted) return;
+    const box = document.getElementById('slackMessage1');
+    let addition = 'Payment reference:\nTransaction ID: ' + (lastExtracted.transactionId || '[not found]');
+    if(lastExtracted.amount) addition += '\nAmount: ₹' + lastExtracted.amount;
+    if(lastExtracted.payer) addition += '\nPaid by: ' + lastExtracted.payer;
+    box.value = box.value.trim() + '\n\n' + addition;
+    onSlackMessageChange();
+  }
+
+  (function wireDropZone(){
+    const zone = document.getElementById('dropZone1');
+    zone.addEventListener('dragover', (e) => { e.preventDefault(); zone.classList.add('dragover'); });
+    zone.addEventListener('dragleave', () => zone.classList.remove('dragover'));
+    zone.addEventListener('drop', (e) => {
+      e.preventDefault();
+      zone.classList.remove('dragover');
+      if(e.dataTransfer.files && e.dataTransfer.files[0]) handleScreenshot(e.dataTransfer.files[0]);
+    });
+  })();
+
+  async function sendSlackMessage(){
+    const text = document.getElementById('slackMessage1').value.trim();
+    const statusDiv = document.getElementById('slackStatus1');
+    const btn = document.getElementById('sealBtn1');
+    if(!text){
+      statusDiv.innerHTML = '<p class="note">Write or generate a message first.</p>';
+      return;
+    }
+    btn.disabled = true;
+
+    if(caseState.testMode){
+      statusDiv.innerHTML = '<p class="note" style="color:var(--moss);">Test mode — nothing was actually sent to Slack.</p>';
+      sealStep(1);
+      return;
+    }
+
+    statusDiv.innerHTML = '<p class="note">Sending to #finance…</p>';
+    try{
+      const prompt = 'You have access to a Slack MCP connection. Post a message to the channel "#finance" with exactly this text (preserve the line breaks):\n"""\n' + text + '\n"""\nUse the available tool to send it. After it completes, respond with ONLY a raw JSON object: {"success": true or false, "message": "short human-readable confirmation or error"}. No markdown, no code fences, nothing outside the JSON.';
+      const responseText = await callClaude(prompt, SLACK_SERVER);
+      const parsed = JSON.parse(cleanJSON(responseText));
+      if(parsed.success){
+        statusDiv.innerHTML = '<p class="note" style="color:var(--moss);">' + (parsed.message || 'Sent to #finance.') + '</p>';
+        sealStep(1);
+      } else {
+        statusDiv.innerHTML = '<p class="note">Slack said: ' + (parsed.message || 'send failed.') + '</p>';
+        btn.disabled = false;
+      }
+    }catch(err){
+      statusDiv.innerHTML = '<p class="note">Couldn\'t reach Slack. Try again.</p>';
+      btn.disabled = false;
+      console.error(err);
+    }
+  }
+
+  function cleanJSON(text){
+    return text.replace(/```json/gi, "").replace(/```/g, "").trim();
+  }
+
+  async function searchDeal(){
+    const q = document.getElementById('dealQuery').value.trim();
+    const resultsDiv = document.getElementById('dealResults');
+    if(!q){
+      resultsDiv.innerHTML = '<p class="note">Type a buyer name, phone number, or property to search.</p>';
+      return;
+    }
+    resultsDiv.innerHTML = '<p class="note">Searching Zoho…</p>';
+    try{
+      const prompt = `You have access to a Zoho CRM MCP connection. Search the "Deals" module for records whose Deal_Name contains or matches: "${q}". Return up to 5 matches. For each, include these exact fields: id, Deal_Name, Stage, Buyer_side_Brokerage, Blocking_Amount, Blocking_received_date, Selling_Price, Buyer_Invoice_Amount, Seller_Invoice_Amount. Respond with ONLY a raw JSON array of objects using those exact keys — no markdown, no code fences, no explanation. If nothing matches, return [].`;
+      const text = await callClaude(prompt);
+      const parsed = JSON.parse(cleanJSON(text));
+      if(!Array.isArray(parsed) || parsed.length === 0){
+        resultsDiv.innerHTML = '<p class="note">No matching deals found. Try a different search.</p>';
+        return;
+      }
+      resultsDiv.innerHTML = '';
+      parsed.forEach(d=>{
+        const item = document.createElement('div');
+        item.className = 'deal-result-item';
+        item.innerHTML = '<strong>' + (d.Deal_Name || '(no name)') + '</strong><span>' + (d.Stage || '—') + '</span>';
+        item.onclick = () => pickDeal(d);
+        resultsDiv.appendChild(item);
+      });
+    }catch(err){
+      resultsDiv.innerHTML = '<p class="note">Couldn\'t reach Zoho to search. Try again.</p>';
+      console.error(err);
+    }
+  }
+
+  function pickDeal(d){
+    pickedDeal = d;
+    caseState.pickedDeal = d;
+    document.getElementById('dealForm').style.display = 'block';
+    document.getElementById('dealPickedLabel').textContent = 'Editing: ' + (d.Deal_Name || d.id);
+    document.getElementById('f_brokerage').value = d.Buyer_side_Brokerage || '';
+    document.getElementById('f_amount').value = d.Blocking_Amount || '';
+    document.getElementById('f_date').value = d.Blocking_received_date || '';
+    document.getElementById('f_selling').value = d.Selling_Price || '';
+    document.getElementById('f_buyerinv').value = d.Buyer_Invoice_Amount || '';
+    document.getElementById('f_sellerinv').value = d.Seller_Invoice_Amount || '';
+    document.getElementById('dealResults').innerHTML = '';
+    onField2Change();
+  }
+
+  async function saveDeal(){
+    if(!pickedDeal) return;
+    const statusDiv = document.getElementById('saveStatus2');
+    const btn = document.getElementById('sealBtn2');
+    btn.disabled = true;
+
+    if(caseState.testMode){
+      statusDiv.innerHTML = '<p class="note" style="color:var(--moss);">Test mode — nothing was actually written to Zoho.</p>';
+      sealStep(2);
+      return;
+    }
+
+    statusDiv.innerHTML = '<p class="note">Saving to Zoho…</p>';
+
+    const vals = {
+      brokerage: document.getElementById('f_brokerage').value,
+      amount: document.getElementById('f_amount').value,
+      date: document.getElementById('f_date').value,
+      selling: document.getElementById('f_selling').value,
+      buyerinv: document.getElementById('f_buyerinv').value,
+      sellerinv: document.getElementById('f_sellerinv').value
+    };
+
+    const numericFields = { brokerage: vals.brokerage, amount: vals.amount, selling: vals.selling, buyerinv: vals.buyerinv, sellerinv: vals.sellerinv };
+    for(const [key, val] of Object.entries(numericFields)){
+      if(val !== '' && (isNaN(Number(val)) || Number(val) < 0)){
+        statusDiv.innerHTML = '<p class="note">' + key + ' needs to be a valid, non-negative number.</p>';
+        btn.disabled = false;
+        return;
+      }
+    }
+
+    const n = (v) => v === '' ? 0 : Number(v);
+
+    try{
+      const prompt = `You have access to a Zoho CRM MCP connection. Update the record with id "${pickedDeal.id}" in the "Deals" module. Set exactly these field values (the amount fields are currency-type fields in INR — pass them as plain numbers, not strings): Stage = "Blocking Received", Buyer_side_Brokerage = ${n(vals.brokerage)}, Blocking_Amount = ${n(vals.amount)}, Blocking_received_date = "${vals.date}", Selling_Price = ${n(vals.selling)}, Buyer_Invoice_Amount = ${n(vals.buyerinv)}, Seller_Invoice_Amount = ${n(vals.sellerinv)}. Use the available tool to perform this update. After it completes, respond with ONLY a raw JSON object: {"success": true or false, "message": "short human-readable confirmation or error"}. No markdown, no code fences, nothing outside the JSON.`;
+      const text = await callClaude(prompt);
+      const parsed = JSON.parse(cleanJSON(text));
+      if(parsed.success){
+        statusDiv.innerHTML = '<p class="note" style="color:var(--moss);">' + (parsed.message || 'Saved to Zoho.') + '</p>';
+        sealStep(2);
+      } else {
+        statusDiv.innerHTML = '<p class="note">Zoho said: ' + (parsed.message || 'update failed.') + '</p>';
+        btn.disabled = false;
+      }
+    }catch(err){
+      statusDiv.innerHTML = '<p class="note">Couldn\'t reach Zoho to save. Try again.</p>';
+      btn.disabled = false;
+      console.error(err);
+    }
+  }
+
+  function sealStep(n, restoring){
+    caseState.sealed[n] = true;
+    const step = document.querySelector('.step[data-step="'+n+'"]');
+    const seal = document.querySelector('.seal[data-seal="'+n+'"]');
+    const btn = document.getElementById('sealBtn'+n);
+
+    step.classList.add('done');
+    step.classList.remove('open');
+    seal.classList.remove('active');
+    seal.classList.add('done');
+    seal.innerHTML = '✓';
+    btn.textContent = 'Sealed';
+    btn.classList.add('done');
+    btn.disabled = true;
+
+    const next = document.querySelector('.step[data-step="'+(n+1)+'"]');
+    if(next){
+      next.classList.remove('locked');
+      next.classList.add('open');
+      document.querySelector('.seal[data-seal="'+(n+1)+'"]').classList.add('active');
+    }
+
+    updateTally();
+    if(!restoring) saveState();
+  }
+
+  function updateTally(){
+    const count = Object.values(caseState.sealed).filter(Boolean).length;
+    document.getElementById('tallyText').textContent = count + ' of 4 sealed';
+    document.getElementById('tallyFill').style.width = (count/4*100) + '%';
+    if(count === 4){
+      document.getElementById('finalStamp').classList.add('show');
+    }
+  }
+
+  loadState();
+</script>
+</body>
+</html>
