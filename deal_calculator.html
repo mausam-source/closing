@@ -1,0 +1,777 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Deal Calculator — Truva Closing</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Zilla+Slab:wght@500;600;700&family=Inter:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --paper:#EFEAE0;
+    --paper-dim:#E4DECF;
+    --ink:#1F2A24;
+    --ink-soft:#5B6259;
+    --brass:#A6752C;
+    --brass-dark:#7C5620;
+    --moss:#4B6B4B;
+    --moss-bg:#E6ECE2;
+    --rust:#B5482F;
+    --rust-bg:#F3E2DB;
+    --amber-bg:#F6ECD6;
+    --line:#C8C1B0;
+    --card:#F7F4EC;
+  }
+  *{box-sizing:border-box;}
+  html,body{margin:0;padding:0;}
+  body{
+    background:var(--paper);
+    color:var(--ink);
+    font-family:'Inter',sans-serif;
+    min-height:100vh;
+    padding:40px 16px 80px;
+  }
+  .wrap{max-width:920px;margin:0 auto;}
+  .eyebrow{
+    font-family:'IBM Plex Mono',monospace;
+    font-size:12px;
+    letter-spacing:0.14em;
+    text-transform:uppercase;
+    color:var(--brass-dark);
+    margin:0 0 10px;
+  }
+  h1{
+    font-family:'Zilla Slab',serif;
+    font-weight:700;
+    font-size:36px;
+    line-height:1.08;
+    margin:0 0 12px;
+    letter-spacing:-0.01em;
+  }
+  .subtitle{
+    font-size:15px;
+    color:var(--ink-soft);
+    max-width:620px;
+    line-height:1.55;
+    margin:0 0 36px;
+  }
+  .card{
+    background:var(--card);
+    border:1px solid var(--line);
+    border-radius:14px;
+    padding:26px 24px;
+    margin-bottom:22px;
+  }
+  .card h2{
+    font-family:'Zilla Slab',serif;
+    font-weight:600;
+    font-size:21px;
+    margin:0 0 4px;
+  }
+  .card .card-sub{
+    font-size:13px;
+    color:var(--ink-soft);
+    margin:0 0 20px;
+    line-height:1.5;
+  }
+  .field-grid{
+    display:grid;
+    grid-template-columns:1fr 1fr;
+    gap:18px 20px;
+  }
+  .field{display:flex;flex-direction:column;gap:6px;}
+  .field.full{grid-column:1 / -1;}
+  label{
+    font-family:'IBM Plex Mono',monospace;
+    font-size:11.5px;
+    letter-spacing:0.04em;
+    text-transform:uppercase;
+    color:var(--ink-soft);
+  }
+  input[type="text"], input[type="number"]{
+    font-family:'Inter',sans-serif;
+    font-size:15px;
+    padding:10px 12px;
+    border:1px solid var(--line);
+    border-radius:8px;
+    background:#fff;
+    color:var(--ink);
+    width:100%;
+  }
+  input[type="number"]:focus, input[type="text"]:focus{
+    outline:2px solid var(--brass);
+    outline-offset:1px;
+  }
+  .pillgroup{display:flex;gap:8px;flex-wrap:wrap;}
+  .pill{
+    font-family:'IBM Plex Mono',monospace;
+    font-size:12.5px;
+    padding:9px 16px;
+    border-radius:20px;
+    border:1px solid var(--line);
+    background:#fff;
+    color:var(--ink-soft);
+    cursor:pointer;
+    user-select:none;
+    transition:all .15s ease;
+  }
+  .pill.active{
+    background:var(--ink);
+    border-color:var(--ink);
+    color:var(--paper);
+  }
+  .checkline{
+    display:flex;
+    align-items:center;
+    gap:9px;
+    font-size:14px;
+    cursor:pointer;
+    user-select:none;
+  }
+  .checkline input{width:16px;height:16px;accent-color:var(--brass);}
+  .sub-panel{
+    margin-top:16px;
+    padding-top:16px;
+    border-top:1px dashed var(--line);
+    display:none;
+  }
+  .sub-panel.open{display:block;}
+  details.est{
+    margin-top:14px;
+    border-top:1px dashed var(--line);
+    padding-top:12px;
+  }
+  details.est summary{
+    font-family:'IBM Plex Mono',monospace;
+    font-size:12px;
+    color:var(--brass-dark);
+    cursor:pointer;
+    letter-spacing:0.02em;
+  }
+  details.est .field-grid{margin-top:14px;}
+  .scenario-banner{
+    display:flex;
+    align-items:baseline;
+    gap:10px;
+    flex-wrap:wrap;
+    background:var(--paper-dim);
+    border-radius:10px;
+    padding:14px 16px;
+    margin-bottom:18px;
+  }
+  .scenario-tag{
+    font-family:'IBM Plex Mono',monospace;
+    font-size:12px;
+    letter-spacing:0.06em;
+    text-transform:uppercase;
+    background:var(--ink);
+    color:var(--paper);
+    padding:4px 10px;
+    border-radius:5px;
+    flex-shrink:0;
+  }
+  .scenario-banner p{margin:0;font-size:13.5px;color:var(--ink-soft);line-height:1.5;}
+  table{width:100%;border-collapse:collapse;font-size:14.5px;}
+  th{
+    text-align:left;
+    font-family:'IBM Plex Mono',monospace;
+    font-size:11px;
+    letter-spacing:0.05em;
+    text-transform:uppercase;
+    color:var(--ink-soft);
+    padding:0 0 10px;
+    border-bottom:1px solid var(--line);
+  }
+  th.num, td.num{text-align:right;}
+  td{padding:11px 0;border-bottom:1px solid var(--line);}
+  tr:last-child td{border-bottom:none;}
+  tr.total td{
+    font-weight:700;
+    border-top:2px solid var(--ink);
+    padding-top:14px;
+  }
+  .amt-short{color:var(--ink-soft);font-size:12px;margin-left:6px;}
+  .table-wrap{overflow-x:auto;}
+  .check-row{
+    display:flex;
+    align-items:center;
+    gap:8px;
+    font-size:13px;
+    margin-top:16px;
+    padding-top:14px;
+    border-top:1px solid var(--line);
+    color:var(--ink-soft);
+  }
+  .check-row.ok{color:var(--moss);}
+  .check-row.bad{color:var(--rust);}
+  .dot{width:8px;height:8px;border-radius:50%;background:currentColor;flex-shrink:0;}
+  .warning{
+    background:var(--rust-bg);
+    border:1px solid #DDB6A8;
+    color:#7A3320;
+    border-radius:8px;
+    padding:12px 14px;
+    font-size:13.5px;
+    line-height:1.5;
+    margin-bottom:12px;
+  }
+  .warning:last-child{margin-bottom:0;}
+  .info-box{
+    background:var(--amber-bg);
+    border:1px solid #E0CE9F;
+    border-radius:8px;
+    padding:14px 16px;
+    font-size:13.5px;
+    line-height:1.6;
+    color:#5C4A1E;
+  }
+  .info-box .row{display:flex;justify-content:space-between;gap:12px;margin-top:4px;}
+  .info-box strong{color:#4A3B18;}
+  .timeline{position:relative;padding-left:2px;}
+  .m-item{
+    position:relative;
+    padding:0 0 26px 40px;
+    border-left:2px solid var(--line);
+    margin-left:13px;
+  }
+  .m-item:last-child{border-left:2px solid transparent;padding-bottom:0;}
+  .m-num{
+    position:absolute;
+    left:-14px;
+    top:0;
+    width:26px;
+    height:26px;
+    border-radius:50%;
+    background:var(--brass);
+    color:#fff;
+    font-family:'IBM Plex Mono',monospace;
+    font-size:12px;
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    font-weight:600;
+  }
+  .m-title{
+    font-family:'Zilla Slab',serif;
+    font-weight:600;
+    font-size:17.5px;
+    margin:0 0 2px;
+  }
+  .m-timing{
+    font-family:'IBM Plex Mono',monospace;
+    font-size:11.5px;
+    color:var(--brass-dark);
+    letter-spacing:0.02em;
+    margin-bottom:10px;
+  }
+  .m-payment{
+    background:var(--paper-dim);
+    border-radius:8px;
+    padding:10px 13px;
+    margin-bottom:8px;
+    font-size:13.5px;
+  }
+  .m-payment .pay-top{
+    display:flex;
+    justify-content:space-between;
+    gap:10px;
+    font-weight:600;
+  }
+  .m-payment .pay-flow{color:var(--ink-soft);font-size:12.5px;margin-top:2px;}
+  .m-payment .pay-note{color:var(--ink-soft);font-size:12.5px;margin-top:4px;line-height:1.5;}
+  .m-note{
+    font-size:13px;
+    color:var(--ink-soft);
+    line-height:1.55;
+    margin:0 0 8px;
+  }
+  .m-note.flag{color:var(--rust);}
+  .actions{display:flex;gap:10px;flex-wrap:wrap;margin-top:4px;}
+  button.copy-btn{
+    font-family:'IBM Plex Mono',monospace;
+    font-size:12.5px;
+    padding:10px 16px;
+    border-radius:8px;
+    border:1px solid var(--ink);
+    background:var(--ink);
+    color:var(--paper);
+    cursor:pointer;
+  }
+  button.copy-btn.copied{background:var(--moss);border-color:var(--moss);}
+  footer{
+    margin-top:30px;
+    font-size:12px;
+    color:var(--ink-soft);
+    line-height:1.6;
+    border-top:1px solid var(--line);
+    padding-top:16px;
+  }
+  @media (max-width:560px){
+    .field-grid{grid-template-columns:1fr;}
+    h1{font-size:28px;}
+    .card{padding:20px 16px;}
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <p class="eyebrow">Truva Closing — Internal Tool</p>
+  <h1>Deal Calculator</h1>
+  <p class="subtitle">Enter a deal's parameters to get the funding split, TDS, self-contribution, stamp duty &amp; registration, and the full milestone-by-milestone payment schedule — driven by the same logic as the TDS/Stamp-Duty/Payment-Structure template.</p>
+
+  <div class="card">
+    <h2>Deal Parameters</h2>
+    <p class="card-sub">Agreement Value, funding split, and seller residency drive everything below.</p>
+    <div class="field-grid">
+      <div class="field full">
+        <label for="dealLabel">Deal / Property (optional)</label>
+        <input type="text" id="dealLabel" placeholder="e.g. 906 - 3, Boulevard The Address">
+      </div>
+      <div class="field">
+        <label for="av">Agreement Value (₹)</label>
+        <input type="number" id="av" min="0" step="1000" value="10000000">
+      </div>
+      <div class="field">
+        <label for="token">Token / Blocking Amount (₹)</label>
+        <input type="number" id="token" min="0" step="1000" value="500000">
+      </div>
+      <div class="field">
+        <label for="loanPct">Buyer Loan (% of Agreement Value)</label>
+        <input type="number" id="loanPct" min="0" max="100" step="1" value="80">
+      </div>
+      <div class="field">
+        <label>Self-Funded (auto)</label>
+        <input type="text" id="selfPctDisplay" disabled>
+      </div>
+      <div class="field full">
+        <label>Seller Residency</label>
+        <div class="pillgroup" id="residencyGroup">
+          <div class="pill active" data-value="resident">Resident</div>
+          <div class="pill" data-value="nri">NRI</div>
+        </div>
+        <div class="sub-panel" id="nriPanel">
+          <div class="field-grid">
+            <div class="field">
+              <label>Number of Sellers</label>
+              <div class="pillgroup" id="numSellersGroup">
+                <div class="pill active" data-value="1">1</div>
+                <div class="pill" data-value="2">2</div>
+              </div>
+            </div>
+            <div class="field">
+              <label class="checkline" style="margin-top:22px;">
+                <input type="checkbox" id="ldcApplied"> Low TDS Certificate (LDC) in hand / applied
+              </label>
+            </div>
+            <div class="field" id="ldcRateField" style="display:none;">
+              <label for="ldcRate">Certified / Expected LDC Rate (%)</label>
+              <input type="number" id="ldcRate" min="0" max="35.9" step="0.01" placeholder="e.g. 2.5">
+            </div>
+          </div>
+          <details class="est">
+            <summary>Estimate LDC rate from purchase history →</summary>
+            <div class="field-grid">
+              <div class="field">
+                <label for="purchasePrice">Seller's Purchase Price (₹, incl. stamp duty)</label>
+                <input type="number" id="purchasePrice" min="0" step="1000">
+              </div>
+              <div class="field">
+                <label for="brokerageCost">Brokerage Costs (₹)</label>
+                <input type="number" id="brokerageCost" min="0" step="1000" value="0">
+              </div>
+              <div class="field">
+                <label for="improvementCost">Improvement Costs (₹)</label>
+                <input type="number" id="improvementCost" min="0" step="1000" value="0">
+              </div>
+              <div class="field">
+                <label>Estimated LDC Rate</label>
+                <input type="text" id="estimatedRate" disabled>
+              </div>
+            </div>
+          </details>
+        </div>
+      </div>
+      <div class="field full">
+        <label>Buyer Registration Category</label>
+        <div class="pillgroup" id="regGroup">
+          <div class="pill active" data-value="male">Male / Joint (6% stamp duty)</div>
+          <div class="pill" data-value="female">Sole Female (5% stamp duty)</div>
+        </div>
+      </div>
+      <div class="field full">
+        <label class="checkline">
+          <input type="checkbox" id="sellerHasLoan"> Seller has an existing loan on the property
+        </label>
+        <div class="sub-panel" id="sellerLoanPanel">
+          <div class="field-grid">
+            <div class="field">
+              <label for="sellerLoanAmount">Seller's Outstanding Loan Amount (₹)</label>
+              <input type="number" id="sellerLoanAmount" min="0" step="1000" value="0">
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="card">
+    <h2>Scenario</h2>
+    <div class="scenario-banner">
+      <span class="scenario-tag" id="scenarioTag">A</span>
+      <p id="scenarioDesc"></p>
+    </div>
+    <div id="warningsBox"></div>
+  </div>
+
+  <div class="card">
+    <h2>Payment Schedule</h2>
+    <p class="card-sub">Matches the standard MoU-stage Particulars / Amount table.</p>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>Particulars</th><th class="num">Amount</th></tr></thead>
+        <tbody id="scheduleBody"></tbody>
+      </table>
+    </div>
+    <div class="check-row" id="checkRow"></div>
+    <div class="actions">
+      <button class="copy-btn" id="copyBtn">Copy summary</button>
+    </div>
+  </div>
+
+  <div class="card">
+    <h2>Additional Payments — Stamp Duty &amp; Registration</h2>
+    <p class="card-sub">Borne entirely by the buyer, separate from the schedule above, due at least 2 days before registration.</p>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>Particulars</th><th class="num">Amount</th></tr></thead>
+        <tbody id="stampBody"></tbody>
+      </table>
+    </div>
+  </div>
+
+  <div class="card" id="ldcCard" style="display:none;">
+    <h2>Low TDS Certificate — Reference</h2>
+    <p class="card-sub">Informational only — not part of the formal schedule until the certificate is finalized.</p>
+    <div class="info-box" id="ldcBox"></div>
+  </div>
+
+  <div class="card">
+    <h2>Milestones &amp; Sub-Payments</h2>
+    <p class="card-sub">Who pays whom, and when, from blocking through possession — sequenced for this deal's loan scenario.</p>
+    <div class="timeline" id="milestones"></div>
+  </div>
+
+  <footer>
+    Formulas follow Truva's TDS/Stamp-Duty/Payment-Structure template and the Closing scenario playbook. TDS threshold (₹50L for resident sellers), 14.95% NRI rate, and stamp duty rates (6%/5%) reflect current CBDT/state rules as documented internally — reconfirm against the live Notion reference before using these numbers in an actual agreement. This tool does not submit or save anything; all figures are computed locally in your browser.
+  </footer>
+</div>
+
+<script>
+  const state = { residency:'resident', regType:'male', numSellers:1, ldcApplied:false, sellerHasLoan:false };
+
+  function inr(n){
+    if(n===null||n===undefined||isNaN(n)) n=0;
+    const neg = n<0;
+    n = Math.round(Math.abs(n));
+    let s = n.toString();
+    let last3 = s.slice(-3);
+    let rest = s.slice(0,-3);
+    if(rest!=='') last3 = ',' + last3;
+    const formatted = rest.replace(/\B(?=(\d{2})+(?!\d))/g, ',') + last3;
+    return (neg?'-':'') + '₹' + formatted;
+  }
+  function shortForm(n){
+    const abs = Math.abs(n);
+    if(abs>=1e7) return '≈ ₹' + (n/1e7).toFixed(2) + ' Cr';
+    if(abs>=1e5) return '≈ ₹' + (n/1e5).toFixed(2) + ' L';
+    return '';
+  }
+  function num(id){
+    const v = parseFloat(document.getElementById(id).value);
+    return isNaN(v) ? 0 : v;
+  }
+  function clamp(v,lo,hi){ return Math.max(lo, Math.min(hi, v)); }
+
+  function wirePillGroup(groupId, onSelect){
+    const group = document.getElementById(groupId);
+    group.querySelectorAll('.pill').forEach(p=>{
+      p.addEventListener('click', ()=>{
+        group.querySelectorAll('.pill').forEach(x=>x.classList.remove('active'));
+        p.classList.add('active');
+        onSelect(p.dataset.value);
+        calculate();
+      });
+    });
+  }
+
+  wirePillGroup('residencyGroup', v=>{
+    state.residency = v;
+    document.getElementById('nriPanel').classList.toggle('open', v==='nri');
+  });
+  wirePillGroup('numSellersGroup', v=> state.numSellers = parseInt(v,10));
+  wirePillGroup('regGroup', v=> state.regType = v);
+
+  document.getElementById('ldcApplied').addEventListener('change', e=>{
+    state.ldcApplied = e.target.checked;
+    document.getElementById('ldcRateField').style.display = e.target.checked ? 'flex' : 'none';
+    calculate();
+  });
+  document.getElementById('sellerHasLoan').addEventListener('change', e=>{
+    state.sellerHasLoan = e.target.checked;
+    document.getElementById('sellerLoanPanel').classList.toggle('open', e.target.checked);
+    calculate();
+  });
+
+  ['av','token','loanPct','ldcRate','sellerLoanAmount','purchasePrice','brokerageCost','improvementCost'].forEach(id=>{
+    document.getElementById(id).addEventListener('input', calculate);
+  });
+
+  function estimateLdcRate(){
+    const purchase = num('purchasePrice');
+    const brokerage = num('brokerageCost');
+    const improvement = num('improvementCost');
+    const av = num('av');
+    const out = document.getElementById('estimatedRate');
+    if(purchase<=0 || av<=0){ out.value=''; return; }
+    const netGain = av - purchase - brokerage - improvement;
+    if(netGain<=0){ out.value = '0.00% (no gain)'; return; }
+    const tax = netGain * 0.1495;
+    const rate = (tax/av)*100;
+    out.value = rate.toFixed(2) + '%';
+  }
+
+  function buildScenario(buyerHasLoan, sellerHasLoan, selfFundedTotal, sellerLoanAmount){
+    if(!buyerHasLoan && !sellerHasLoan) return {code:'A', label:'No loans — simplest case', desc:'Neither buyer nor seller has a loan. Buyer pays the full consideration on or before registration day; documents and keys change hands the same day.'};
+    if(buyerHasLoan && !sellerHasLoan) return {code:'B', label:'Buyer has a loan, seller doesn’t', desc:'Buyer pays a self-funded contribution before registration, then registration happens. The buyer’s bank disburses the loan to the seller within ~2 days of receiving the registered agreement, original documents and Mortgage NOC.'};
+    if(!buyerHasLoan && sellerHasLoan) return {code:'C', label:'Seller has a loan, buyer doesn’t', desc:'Buyer pays off the seller’s outstanding loan directly (per the Foreclosure Letter) so the seller’s bank releases the Closure Letter and original documents, then pays the balance on registration day.'};
+    if(selfFundedTotal >= sellerLoanAmount) return {code:'D1', label:'Both have loans — buyer’s self-funding ≥ seller’s loan', desc:'Buyer transfers all self-funds to the seller pre-registration; the seller uses part of it to close their own loan. After registration, Truva secures the Mortgage NOC and the buyer’s bank disburses the loan to the seller.'};
+    return {code:'D2', label:'Both have loans — buyer’s self-funding < seller’s loan (deadlock risk)', desc:'Buyer transfers whatever self-funds are available pre-registration. Post-registration, the buyer’s bank closes the seller’s loan and, once the Mortgage NOC and original documents are in hand, releases the remaining loan amount to the seller. Typically ~2 months; needs active bank coordination.'};
+  }
+
+  function buildMilestones(ctx){
+    const { token, tds, tdsLabel, residency, stampDuty, regFee, scenario, selfContribution, sellerLoanAmount, sellerHasLoan, loanAmount, av } = ctx;
+    const items = [];
+
+    const blockingPayments = [];
+    if(token>0) blockingPayments.push({label:'Token / Blocking Amount', amount:token, flow:'Buyer → Seller', note:'Coordinated via BEX at the time of blocking, before the Tripartite MoU is signed.'});
+    if(residency==='nri' && token>0){
+      blockingPayments.push({label:'TDS on Token', amount:token*0.1495, flow:'Buyer → Government (Sec. 195)', note:'Due by the 7th of the month following the token payment (e.g. token paid 15 Oct → TDS due by 7 Nov).'});
+    }
+    items.push({title:'Blocking / Token Received', timing:'Deal start', payments:blockingPayments, notes: blockingPayments.length? [] : ['No token recorded for this deal.']});
+
+    const mouNotes = ['Buyer’s blocking-amount refund (BEX-side) triggers automatically via an Airtable automation once the MoU is signed — not a seller-side payment.'];
+    if(sellerHasLoan) mouNotes.push('Seller requests a Foreclosure Letter from their bank stating the exact outstanding loan amount.');
+    items.push({title:'Tripartite MoU Signed', timing:'After buyer–seller intro call', payments:[], notes:mouNotes});
+
+    const preRegPayments = [
+      {label:'Stamp Duty', amount:stampDuty, flow:'Buyer → Government', note:'At least 2 days before registration.'},
+      {label:'Registration + Scanning Fees', amount:regFee, flow:'Buyer → Government', note:'Flat fee, paid alongside stamp duty.'}
+    ];
+    if(residency==='resident'){
+      preRegPayments.push({label:tdsLabel, amount:tds, flow:'Buyer → Government (Sec. 194-IA)', note:'Paid in full, 2–3 days before registration.'});
+    } else {
+      preRegPayments.push({label:'TDS on Remainder', amount:0, flow:'Buyer → Government (Sec. 195)', note:'Held back until the seller’s Low TDS Certificate is finalized — do not release balance funds before then. Only the token amount can move ahead of it.'});
+    }
+
+    let preRegBuyerToSeller = null;
+    if(scenario==='B'){
+      preRegBuyerToSeller = {label:'Self-Funding Contribution', amount:selfContribution, flow:'Buyer → Seller', note:'Whatever self-arranged funds the buyer has, paid before registration.'};
+    } else if(scenario==='C'){
+      preRegBuyerToSeller = {label:'Foreclosure Payoff', amount:sellerLoanAmount, flow:'Buyer → Seller’s Loan Account', note:'Exact amount from the seller’s Foreclosure Letter, closing their existing loan.'};
+    } else if(scenario==='D1'){
+      preRegBuyerToSeller = {label:'Self-Contribution (all self-funds)', amount:selfContribution, flow:'Buyer → Seller', note:`Seller uses ${inr(sellerLoanAmount)} of this to close their own loan and retains the balance.`};
+    } else if(scenario==='D2'){
+      preRegBuyerToSeller = {label:'Self-Contribution (whatever funds available)', amount:selfContribution, flow:'Buyer → Seller', note:'May not fully cover the seller’s outstanding loan — the remainder is closed post-registration by the buyer’s bank.'};
+    }
+    if(preRegBuyerToSeller) preRegPayments.push(preRegBuyerToSeller);
+    items.push({title:'Pre-Registration', timing:'T−2 days and earlier', payments:preRegPayments, notes:[]});
+
+    const regPayments = [];
+    const regNotes = [];
+    if(scenario==='A'){
+      regPayments.push({label:'Full Consideration', amount:selfContribution, flow:'Buyer → Seller', note:'Via RTGS transfer or (preferred) a Demand Draft in the seller’s name.'});
+    } else if(scenario==='C'){
+      const balance = selfContribution - sellerLoanAmount;
+      if(balance>0) regPayments.push({label:'Balance Consideration', amount:balance, flow:'Buyer → Seller', note:'Remaining self-funds after the foreclosure payoff, via RTGS or Demand Draft.'});
+      else regNotes.push('Foreclosure payoff already accounts for the full self-contribution — no balance due on registration day.');
+    } else if(scenario==='B'){
+      regNotes.push('Agreement is registered; no further buyer-side payment today. Truva submits the registered agreement, seller’s original documents and Mortgage NOC to the buyer’s bank.');
+    } else if(scenario==='D1' || scenario==='D2'){
+      regNotes.push('Agreement is registered and submitted to the buyer’s bank; Truva applies for / procures the Mortgage NOC in parallel.');
+    }
+    regPayments.forEach(()=>{});
+    items.push({title:'Registration Day', timing:'Sub-Registrar’s office', payments:regPayments, notes:regNotes});
+
+    if(loanAmount>0 || scenario==='D1' || scenario==='D2'){
+      const postPayments = [];
+      const postNotes = [];
+      if(scenario==='B'){
+        postPayments.push({label:'Loan Disbursement', amount:loanAmount, flow:'Buyer’s Bank → Seller', note:'Released within ~2 days of the bank receiving the registered agreement, original documents and Mortgage NOC.'});
+      } else if(scenario==='D1'){
+        postPayments.push({label:'Loan Disbursement', amount:loanAmount, flow:'Buyer’s Bank → Seller', note:'Released once the Mortgage NOC and seller’s original documents reach the buyer’s bank.'});
+      } else if(scenario==='D2'){
+        const closeLoan = Math.min(loanAmount, sellerLoanAmount);
+        const remainder = loanAmount - closeLoan;
+        postPayments.push({label:'Loan Disbursement — closes seller’s loan', amount:closeLoan, flow:'Buyer’s Bank → Seller’s Loan Account', note:'Buyer’s bank closes the seller’s existing loan directly, triggering the Closure Letter and document release.'});
+        if(remainder>0) postPayments.push({label:'Loan Disbursement — remaining balance', amount:remainder, flow:'Buyer’s Bank → Seller', note:'Released once the Mortgage NOC and seller’s original documents reach the buyer’s bank.'});
+        postNotes.push('Deadlock-risk case — typically ~2 months, needs active, patient bank coordination.');
+      }
+      items.push({title:'Post-Registration — Loan Disbursement', timing: scenario==='D2' ? '~2 months typical' : '~2 days after registration', payments:postPayments, notes:postNotes});
+    }
+
+    items.push({title:'Possession', timing:'Once documents & funds have fully moved', payments:[], notes:['Seller hands over keys, all original documents, and the Possession Letter to the buyer. No deal payment typically due at this stage.']});
+
+    return items;
+  }
+
+  function renderMilestones(items){
+    const el = document.getElementById('milestones');
+    el.innerHTML = items.map((m,i)=>`
+      <div class="m-item">
+        <div class="m-num">${i+1}</div>
+        <p class="m-title">${m.title}</p>
+        <p class="m-timing">${m.timing}</p>
+        ${m.payments.map(p=>`
+          <div class="m-payment">
+            <div class="pay-top"><span>${p.label}</span><span>${p.amount>0? inr(p.amount) : '—'}</span></div>
+            <div class="pay-flow">${p.flow}</div>
+            ${p.note? `<div class="pay-note">${p.note}</div>` : ''}
+          </div>
+        `).join('')}
+        ${m.notes.map(n=>`<p class="m-note ${n.toLowerCase().includes('deadlock')?'flag':''}">${n}</p>`).join('')}
+      </div>
+    `).join('');
+  }
+
+  function calculate(){
+    estimateLdcRate();
+
+    const av = num('av');
+    const token = num('token');
+    const loanPct = clamp(num('loanPct'),0,100);
+    document.getElementById('loanPct').value = loanPct;
+    const selfPct = 100-loanPct;
+    document.getElementById('selfPctDisplay').value = selfPct + '%';
+
+    const residency = state.residency;
+    const sellerHasLoan = state.sellerHasLoan;
+    const sellerLoanAmount = sellerHasLoan ? num('sellerLoanAmount') : 0;
+    const numSellers = state.numSellers;
+    const ldcApplied = state.ldcApplied;
+    const ldcRate = num('ldcRate');
+
+    const loanAmount = av * loanPct/100;
+    const selfFundedTotal = av * selfPct/100;
+
+    let tds=0, tdsLabel='TDS', selfContribution=0, selfContributionLabel='Self-Contribution';
+    const warnings=[];
+
+    if(residency==='resident'){
+      tds = av>=5000000 ? av*0.01 : 0;
+      selfContribution = selfFundedTotal - token - tds;
+    } else {
+      tds = token*0.1495;
+      tdsLabel = 'TDS on Token';
+      selfContributionLabel = 'Self-Contribution Amount (incl. Token)';
+      selfContribution = selfFundedTotal - tds;
+    }
+
+    if(selfContribution<0){
+      warnings.push(`${selfContributionLabel} works out negative (${inr(selfContribution)}) — the token amount or funding split doesn’t fit within the self-funded portion.`);
+    }
+
+    const scheduleRows = [];
+    if(token>0) scheduleRows.push({label:'Token', amount:token});
+    scheduleRows.push({label:tdsLabel, amount:tds});
+    scheduleRows.push({label:selfContributionLabel, amount:selfContribution});
+    if(loanAmount>0) scheduleRows.push({label:'Loan Amount', amount:loanAmount});
+    scheduleRows.push({label:'Agreement Value', amount:av, bold:true});
+
+    document.getElementById('scheduleBody').innerHTML = scheduleRows.map(r=>`
+      <tr${r.bold?' class="total"':''}>
+        <td>${r.label}</td>
+        <td class="num">${inr(r.amount)}${shortForm(r.amount)?`<span class="amt-short">${shortForm(r.amount)}</span>`:''}</td>
+      </tr>
+    `).join('');
+
+    const checkSum = residency==='resident'
+      ? token + tds + selfContribution + loanAmount
+      : tds + selfContribution + loanAmount;
+    const balanced = Math.abs(checkSum - av) < 1;
+    const checkRow = document.getElementById('checkRow');
+    checkRow.className = 'check-row ' + (balanced?'ok':'bad');
+    checkRow.innerHTML = `<span class="dot"></span> ${balanced? 'Schedule reconciles to the Agreement Value.' : `Schedule totals ${inr(checkSum)} against an Agreement Value of ${inr(av)} — check your inputs.`}`;
+
+    const stampDutyRate = state.regType==='female' ? 0.05 : 0.06;
+    const stampDuty = av*stampDutyRate;
+    const regFee = 33000;
+    const totalStampReg = stampDuty+regFee;
+    document.getElementById('stampBody').innerHTML = `
+      <tr><td>Stamp Duty (${(stampDutyRate*100).toFixed(0)}% of Agreement Value)</td><td class="num">${inr(stampDuty)}</td></tr>
+      <tr><td>Registration + Scanning Fees</td><td class="num">${inr(regFee)}</td></tr>
+      <tr class="total"><td>Total Stamp Duty &amp; Registration</td><td class="num">${inr(totalStampReg)}</td></tr>
+    `;
+
+    const buyerHasLoan = loanPct>0;
+    const scenario = buildScenario(buyerHasLoan, sellerHasLoan, selfFundedTotal, sellerLoanAmount);
+    document.getElementById('scenarioTag').textContent = scenario.code;
+    document.getElementById('scenarioDesc').innerHTML = `<strong>${scenario.label}.</strong> ${scenario.desc}`;
+
+    if(scenario.code==='C' && sellerHasLoan && sellerLoanAmount > selfContribution){
+      warnings.push('Seller’s outstanding loan exceeds the buyer’s self-contribution — the payoff won’t fully close on self-funds alone.');
+    }
+    if(scenario.code==='D2'){
+      warnings.push('Deadlock-risk case: buyer’s self-funding is less than the seller’s outstanding loan. Expect ~2 months and active bank coordination.');
+    }
+    document.getElementById('warningsBox').innerHTML = warnings.map(w=>`<div class="warning">${w}</div>`).join('');
+
+    const ldcCard = document.getElementById('ldcCard');
+    if(residency==='nri' && ldcApplied && ldcRate>0){
+      ldcCard.style.display='block';
+      const illustrativeRemainder = (av-token) * ldcRate/100;
+      const fee = numSellers>=2 ? 75000 : 50000;
+      document.getElementById('ldcBox').innerHTML = `
+        <div class="row"><span>Illustrative TDS on remainder at ${ldcRate}%</span><strong>${inr(illustrativeRemainder)}</strong></div>
+        <div class="row"><span>Truva LDC filing fee (${numSellers} seller${numSellers>1?'s':''})</span><strong>${inr(fee)}</strong></div>
+        <div class="row"><span>Out-of-pocket (IT Officer costs, typical)</span><strong>${inr(30000)} – ${inr(100000)}</strong></div>
+        <div class="row"><span>Timeline from application</span><strong>~45 days (1–2 months)</strong></div>
+        ${ldcRate<3 ? '<div class="row" style="color:#B5482F;"><span colspan="2">⚠ Below 3% — Truva does not recommend applying this low; it routes through 2+ Income Tax Officers and adds delay.</span></div>' : ''}
+      `;
+    } else {
+      ldcCard.style.display='none';
+    }
+
+    const milestones = buildMilestones({
+      token, tds, tdsLabel, residency, stampDuty, regFee, scenario: scenario.code,
+      selfContribution, sellerLoanAmount, sellerHasLoan, loanAmount, av
+    });
+    renderMilestones(milestones);
+
+    window.__lastCalc = { av, token, loanAmount, selfFundedTotal, tds, tdsLabel, selfContribution, selfContributionLabel, scheduleRows, stampDuty, regFee, totalStampReg, scenario, dealLabel: document.getElementById('dealLabel').value };
+  }
+
+  document.getElementById('copyBtn').addEventListener('click', ()=>{
+    const c = window.__lastCalc;
+    if(!c) return;
+    const lines = [];
+    if(c.dealLabel) lines.push(c.dealLabel);
+    lines.push(`Scenario: ${c.scenario.label}`);
+    lines.push('');
+    lines.push('Payment Schedule');
+    c.scheduleRows.forEach(r=> lines.push(`${r.label}: ${inr(r.amount)}`));
+    lines.push('');
+    lines.push('Additional Payments');
+    lines.push(`Stamp Duty & Registration: ${inr(c.totalStampReg)}`);
+    const text = lines.join('\n');
+    navigator.clipboard.writeText(text).then(()=>{
+      const btn = document.getElementById('copyBtn');
+      btn.textContent = 'Copied ✓';
+      btn.classList.add('copied');
+      setTimeout(()=>{ btn.textContent='Copy summary'; btn.classList.remove('copied'); }, 1800);
+    });
+  });
+
+  calculate();
+</script>
+</body>
+</html>
