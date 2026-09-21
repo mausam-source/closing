@@ -358,18 +358,22 @@
                 <div class="pill" data-value="2">2</div>
               </div>
             </div>
-            <div class="field">
-              <label class="checkline" style="margin-top:22px;">
-                <input type="checkbox" id="ldcApplied"> Low TDS Certificate (LDC) in hand / applied
-              </label>
+            <div class="field full">
+              <label>Low TDS Certificate (LDC) Status</label>
+              <div class="pillgroup" id="ldcStatusGroup">
+                <div class="pill active" data-value="none">Not applying — standard 14.95%</div>
+                <div class="pill" data-value="pending">Applying — certificate pending</div>
+                <div class="pill" data-value="received">Certificate received</div>
+              </div>
             </div>
             <div class="field" id="ldcRateField" style="display:none;">
-              <label for="ldcRate">Certified / Expected LDC Rate (%)</label>
+              <label for="ldcRate">Certified Base Rate (%) — as stated on the certificate</label>
               <input type="number" id="ldcRate" min="0" max="35.9" step="0.01" placeholder="e.g. 2.5">
             </div>
           </div>
           <details class="est">
-            <summary>Estimate LDC rate from purchase history →</summary>
+            <summary>Estimate a likely LDC rate from purchase history →</summary>
+            <p class="card-sub" style="margin:10px 0 0;">Gives a ballpark <em>effective</em> rate to help decide whether applying is worthwhile — not a substitute for the certified base rate once the certificate is actually issued.</p>
             <div class="field-grid">
               <div class="field">
                 <label for="purchasePrice">Seller's Purchase Price (₹, incl. stamp duty)</label>
@@ -384,7 +388,7 @@
                 <input type="number" id="improvementCost" min="0" step="1000" value="0">
               </div>
               <div class="field">
-                <label>Estimated LDC Rate</label>
+                <label>Estimated Effective Rate</label>
                 <input type="text" id="estimatedRate" disabled>
               </div>
             </div>
@@ -423,6 +427,12 @@
     <div id="warningsBox"></div>
   </div>
 
+  <div class="card" id="tdsBuildCard" style="display:none;">
+    <h2>TDS Rate Build-up</h2>
+    <p class="card-sub">Base rate → surcharge → cess, for whichever rate currently applies to the remainder.</p>
+    <div class="info-box" id="tdsBuildBox"></div>
+  </div>
+
   <div class="card">
     <h2>Payment Schedule</h2>
     <p class="card-sub">Matches the standard MoU-stage Particulars / Amount table.</p>
@@ -450,8 +460,8 @@
   </div>
 
   <div class="card" id="ldcCard" style="display:none;">
-    <h2>Low TDS Certificate — Reference</h2>
-    <p class="card-sub">Informational only — not part of the formal schedule until the certificate is finalized.</p>
+    <h2>Low TDS Certificate — Cost &amp; Timeline</h2>
+    <p class="card-sub">Cost to the customer for applying, regardless of the outcome.</p>
     <div class="info-box" id="ldcBox"></div>
   </div>
 
@@ -467,7 +477,7 @@
 </div>
 
 <script>
-  const state = { residency:'resident', regType:'male', numSellers:1, ldcApplied:false, sellerHasLoan:false };
+  const state = { residency:'resident', regType:'male', numSellers:1, ldcStatus:'none', sellerHasLoan:false };
 
   function inr(n){
     if(n===null||n===undefined||isNaN(n)) n=0;
@@ -510,12 +520,11 @@
   });
   wirePillGroup('numSellersGroup', v=> state.numSellers = parseInt(v,10));
   wirePillGroup('regGroup', v=> state.regType = v);
-
-  document.getElementById('ldcApplied').addEventListener('change', e=>{
-    state.ldcApplied = e.target.checked;
-    document.getElementById('ldcRateField').style.display = e.target.checked ? 'flex' : 'none';
-    calculate();
+  wirePillGroup('ldcStatusGroup', v=>{
+    state.ldcStatus = v;
+    document.getElementById('ldcRateField').style.display = v==='received' ? 'flex' : 'none';
   });
+
   document.getElementById('sellerHasLoan').addEventListener('change', e=>{
     state.sellerHasLoan = e.target.checked;
     document.getElementById('sellerLoanPanel').classList.toggle('open', e.target.checked);
@@ -549,18 +558,21 @@
   }
 
   function buildMilestones(ctx){
-    const { token, tds, tdsLabel, residency, stampDuty, regFee, scenario, selfContribution, sellerLoanAmount, sellerHasLoan, loanAmount, av } = ctx;
+    const { token, tdsOnToken, tdsOnRemainder, residentTds, ldcStatus, residency, stampDuty, regFee, scenario, selfContribution, sellerLoanAmount, sellerHasLoan, loanAmount, av } = ctx;
     const items = [];
 
     const blockingPayments = [];
     if(token>0) blockingPayments.push({label:'Token / Blocking Amount', amount:token, flow:'Buyer → Seller', note:'Coordinated via BEX at the time of blocking, before the Tripartite MoU is signed.'});
     if(residency==='nri' && token>0){
-      blockingPayments.push({label:'TDS on Token', amount:token*0.1495, flow:'Buyer → Government (Sec. 195)', note:'Due by the 7th of the month following the token payment (e.g. token paid 15 Oct → TDS due by 7 Nov).'});
+      blockingPayments.push({label:'TDS on Token', amount:tdsOnToken, flow:'Buyer → Government (Sec. 195)', note:'Due by the 7th of the month following the token payment (e.g. token paid 15 Oct → TDS due by 7 Nov). Always at the standard rate — paid before any LDC can be in hand.'});
     }
     items.push({title:'Blocking / Token Received', timing:'Deal start', payments:blockingPayments, notes: blockingPayments.length? [] : ['No token recorded for this deal.']});
 
     const mouNotes = ['Buyer’s blocking-amount refund (BEX-side) triggers automatically via an Airtable automation once the MoU is signed — not a seller-side payment.'];
     if(sellerHasLoan) mouNotes.push('Seller requests a Foreclosure Letter from their bank stating the exact outstanding loan amount.');
+    if(residency==='nri' && ldcStatus==='none') mouNotes.push('Low TDS Certificate is not being applied for — the full 14.95% rate will apply to the remainder, same as the token.');
+    if(residency==='nri' && ldcStatus==='pending') mouNotes.push('Seller has applied for a Low TDS Certificate — connect them with Truva’s CA on the common WhatsApp group (Form 128, filed via TRACES). Typically ~45 days (1–2 months) to come through.');
+    if(residency==='nri' && ldcStatus==='received') mouNotes.push('Seller’s Low TDS Certificate is in hand — the remainder TDS rate is now fixed at the certified rate.');
     items.push({title:'Tripartite MoU Signed', timing:'After buyer–seller intro call', payments:[], notes:mouNotes});
 
     const preRegPayments = [
@@ -568,9 +580,12 @@
       {label:'Registration + Scanning Fees', amount:regFee, flow:'Buyer → Government', note:'Flat fee, paid alongside stamp duty.'}
     ];
     if(residency==='resident'){
-      preRegPayments.push({label:tdsLabel, amount:tds, flow:'Buyer → Government (Sec. 194-IA)', note:'Paid in full, 2–3 days before registration.'});
+      preRegPayments.push({label:'TDS', amount:residentTds, flow:'Buyer → Government (Sec. 194-IA)', note:'Paid in full, 2–3 days before registration.'});
+    } else if(tdsOnRemainder!==null){
+      const rateNote = ldcStatus==='received' ? 'at the certified LDC rate' : 'at the standard 14.95% rate';
+      preRegPayments.push({label:'TDS on Remainder', amount:tdsOnRemainder, flow:'Buyer → Government (Sec. 195)', note:`Paid in full ${rateNote}, 2–3 days before registration.`});
     } else {
-      preRegPayments.push({label:'TDS on Remainder', amount:0, flow:'Buyer → Government (Sec. 195)', note:'Held back until the seller’s Low TDS Certificate is finalized — do not release balance funds before then. Only the token amount can move ahead of it.'});
+      preRegPayments.push({label:'TDS on Remainder', amount:0, flow:'Buyer → Government (Sec. 195)', note:'Held back until the seller’s Low TDS Certificate is finalized — do not release balance funds before then. Only the token amount and its TDS move ahead of it.'});
     }
 
     let preRegBuyerToSeller = null;
@@ -657,23 +672,41 @@
     const sellerHasLoan = state.sellerHasLoan;
     const sellerLoanAmount = sellerHasLoan ? num('sellerLoanAmount') : 0;
     const numSellers = state.numSellers;
-    const ldcApplied = state.ldcApplied;
+    const ldcStatus = state.ldcStatus; // 'none' | 'pending' | 'received'
     const ldcRate = num('ldcRate');
 
     const loanAmount = av * loanPct/100;
     const selfFundedTotal = av * selfPct/100;
 
+    const BASE_RATE = 0.125, SURCHARGE = 1.15, CESS = 1.04; // 12.5% × 1.15 × 1.04 = 14.95%
+    const effectiveRate = base => base*SURCHARGE*CESS;
+
     let tds=0, tdsLabel='TDS', selfContribution=0, selfContributionLabel='Self-Contribution';
+    let tdsOnToken=0, tdsOnRemainder=null, remainderRate=null;
     const warnings=[];
 
     if(residency==='resident'){
       tds = av>=5000000 ? av*0.01 : 0;
       selfContribution = selfFundedTotal - token - tds;
     } else {
-      tds = token*0.1495;
-      tdsLabel = 'TDS on Token';
-      selfContributionLabel = 'Self-Contribution Amount (incl. Token)';
-      selfContribution = selfFundedTotal - tds;
+      tdsOnToken = token * effectiveRate(BASE_RATE);
+
+      if(ldcStatus==='none'){
+        remainderRate = { base: BASE_RATE, effective: effectiveRate(BASE_RATE) };
+      } else if(ldcStatus==='received' && ldcRate>0){
+        remainderRate = { base: ldcRate/100, effective: effectiveRate(ldcRate/100) };
+      }
+
+      if(remainderRate){
+        tdsOnRemainder = (av - token) * remainderRate.effective;
+        tds = tdsOnToken + tdsOnRemainder;
+        selfContributionLabel = 'Self-Contribution';
+        selfContribution = selfFundedTotal - token - tdsOnToken - tdsOnRemainder;
+      } else {
+        tds = tdsOnToken;
+        selfContributionLabel = 'Self-Contribution Amount (incl. Token)';
+        selfContribution = selfFundedTotal - tdsOnToken;
+      }
     }
 
     if(selfContribution<0){
@@ -682,7 +715,12 @@
 
     const scheduleRows = [];
     if(token>0) scheduleRows.push({label:'Token', amount:token});
-    scheduleRows.push({label:tdsLabel, amount:tds});
+    if(residency==='nri'){
+      scheduleRows.push({label:'TDS on Token', amount:tdsOnToken});
+      if(tdsOnRemainder!==null) scheduleRows.push({label:'TDS on Remainder', amount:tdsOnRemainder});
+    } else {
+      scheduleRows.push({label:tdsLabel, amount:tds});
+    }
     scheduleRows.push({label:selfContributionLabel, amount:selfContribution});
     if(loanAmount>0) scheduleRows.push({label:'Loan Amount', amount:loanAmount});
     scheduleRows.push({label:'Agreement Value', amount:av, bold:true});
@@ -694,9 +732,14 @@
       </tr>
     `).join('');
 
-    const checkSum = residency==='resident'
-      ? token + tds + selfContribution + loanAmount
-      : tds + selfContribution + loanAmount;
+    let checkSum;
+    if(residency==='resident'){
+      checkSum = token + tds + selfContribution + loanAmount;
+    } else if(tdsOnRemainder!==null){
+      checkSum = token + tdsOnToken + tdsOnRemainder + selfContribution + loanAmount;
+    } else {
+      checkSum = tdsOnToken + selfContribution + loanAmount;
+    }
     const balanced = Math.abs(checkSum - av) < 1;
     const checkRow = document.getElementById('checkRow');
     checkRow.className = 'check-row ' + (balanced?'ok':'bad');
@@ -725,24 +768,56 @@
     }
     document.getElementById('warningsBox').innerHTML = warnings.map(w=>`<div class="warning">${w}</div>`).join('');
 
+    function rateBlock(title, base, amountBase){
+      const eff = effectiveRate(base);
+      const step1 = amountBase*base, step2 = step1*SURCHARGE, step3 = step2*CESS;
+      return `
+        <div style="margin-bottom:14px;">
+          <div style="font-weight:700;margin-bottom:4px;">${title}</div>
+          <div class="row"><span>Base: ${(base*100).toFixed(2)}% × ${inr(amountBase)}</span><strong>${inr(step1)}</strong></div>
+          <div class="row"><span>+ Surcharge: × 1.15</span><strong>${inr(step2)}</strong></div>
+          <div class="row"><span>+ Cess: × 1.04 &nbsp;(effective ${(eff*100).toFixed(2)}%)</span><strong>${inr(step3)}</strong></div>
+        </div>
+      `;
+    }
+
+    const tdsBuildCard = document.getElementById('tdsBuildCard');
+    if(residency==='nri'){
+      tdsBuildCard.style.display='block';
+      let html = rateBlock('TDS on Token (always the standard rate — paid before any certificate can exist)', BASE_RATE, token);
+      if(ldcStatus==='none'){
+        html += rateBlock('TDS on Remainder (no LDC — standard rate on the balance)', BASE_RATE, av-token);
+      } else if(ldcStatus==='received' && ldcRate>0){
+        html += rateBlock('TDS on Remainder (certified LDC base rate)', ldcRate/100, av-token);
+      } else {
+        html += `<div class="row"><span>TDS on Remainder</span><strong>To be determined once the certificate is issued</strong></div>`;
+      }
+      document.getElementById('tdsBuildBox').innerHTML = html;
+    } else {
+      tdsBuildCard.style.display='none';
+    }
+
     const ldcCard = document.getElementById('ldcCard');
-    if(residency==='nri' && ldcApplied && ldcRate>0){
+    if(residency==='nri' && (ldcStatus==='pending' || ldcStatus==='received')){
       ldcCard.style.display='block';
-      const illustrativeRemainder = (av-token) * ldcRate/100;
       const fee = numSellers>=2 ? 75000 : 50000;
-      document.getElementById('ldcBox').innerHTML = `
-        <div class="row"><span>Illustrative TDS on remainder at ${ldcRate}%</span><strong>${inr(illustrativeRemainder)}</strong></div>
+      let rows = `
         <div class="row"><span>Truva LDC filing fee (${numSellers} seller${numSellers>1?'s':''})</span><strong>${inr(fee)}</strong></div>
         <div class="row"><span>Out-of-pocket (IT Officer costs, typical)</span><strong>${inr(30000)} – ${inr(100000)}</strong></div>
         <div class="row"><span>Timeline from application</span><strong>~45 days (1–2 months)</strong></div>
-        ${ldcRate<3 ? '<div class="row" style="color:#B5482F;"><span colspan="2">⚠ Below 3% — Truva does not recommend applying this low; it routes through 2+ Income Tax Officers and adds delay.</span></div>' : ''}
       `;
+      if(ldcStatus==='pending'){
+        rows += `<div class="row"><span>Status</span><strong>Applied — awaiting certificate</strong></div>`;
+      } else if(ldcRate>0 && remainderRate && remainderRate.effective*100 < 3){
+        rows += `<div class="row" style="color:#B5482F;"><span colspan="2">⚠ Effective rate (${(remainderRate.effective*100).toFixed(2)}%) is below 3% — Truva does not recommend applying this low; it routes through 2+ Income Tax Officers and adds delay.</span></div>`;
+      }
+      document.getElementById('ldcBox').innerHTML = rows;
     } else {
       ldcCard.style.display='none';
     }
 
     const milestones = buildMilestones({
-      token, tds, tdsLabel, residency, stampDuty, regFee, scenario: scenario.code,
+      token, tdsOnToken, tdsOnRemainder, residentTds: tds, ldcStatus, residency, stampDuty, regFee, scenario: scenario.code,
       selfContribution, sellerLoanAmount, sellerHasLoan, loanAmount, av
     });
     renderMilestones(milestones);
