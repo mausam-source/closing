@@ -535,12 +535,16 @@
 
 <!--
   Zoho CRM Embedded App SDK — only present/active when this page is opened
-  as a widget inside Zoho CRM (Setup > Developer Space > Widgets) on a
-  Property (module api_name: Products) record. Verify this script URL and
-  version against Zoho's current widget SDK docs before deploying, since
-  Zoho revises these paths — it was not possible to confirm live from here.
+  as a widget inside Zoho CRM (Setup > Developer Space > Widgets) on a Bid
+  (Deals) or Property (Products) record. The path here was previously wrong
+  (js/sdk instead of js-sdk), which 404'd and silently disabled the pull —
+  fixed to match Zoho's official embeddedApp-js-sdk release path, cross-
+  checked against a public sample widget's index.html. This sandbox itself
+  blocks all zoho.com/zwidgets.com domains, so this could not be end-to-end
+  verified from here — confirm the SDK actually loads (no 404 in DevTools
+  Network tab) once installed as a real widget in Zoho CRM.
 -->
-<script src="https://live.zwidgets.com/js/sdk/1.2/ZohoEmbededAppSDK.min.js"></script>
+<script src="https://live.zwidgets.com/js-sdk/1.4/ZohoEmbededAppSDK.min.js"></script>
 
 <script>
   const state = { residency:'resident', regType:'male', numSellers:1, ldcStatus:'none', sellerHasLoan:false };
