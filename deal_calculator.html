@@ -615,12 +615,12 @@
     out.value = rate.toFixed(2) + '%';
   }
 
-  function buildScenario(buyerHasLoan, sellerHasLoan, selfFundedTotal, sellerLoanAmount){
+  function buildScenario(buyerHasLoan, sellerHasLoan, selfContribution, sellerLoanAmount){
     if(!buyerHasLoan && !sellerHasLoan) return {code:'A', label:'No loans — simplest case', desc:'Neither buyer nor seller has a loan. Buyer pays the full consideration on or before registration day; documents and keys change hands the same day.'};
     if(buyerHasLoan && !sellerHasLoan) return {code:'B', label:'Buyer has a loan, seller doesn’t', desc:'Buyer pays a self-funded contribution before registration, then registration happens. The buyer’s bank disburses the loan to the seller within ~2 days of receiving the registered agreement, original documents and Mortgage NOC.'};
     if(!buyerHasLoan && sellerHasLoan) return {code:'C', label:'Seller has a loan, buyer doesn’t', desc:'Buyer pays off the seller’s outstanding loan directly (per the Foreclosure Letter) so the seller’s bank releases the Closure Letter and original documents, then pays the balance on registration day.'};
-    if(selfFundedTotal >= sellerLoanAmount) return {code:'D1', label:'Both have loans — buyer’s self-funding ≥ seller’s loan', desc:'Buyer transfers all self-funds to the seller pre-registration; the seller uses part of it to close their own loan. After registration, Truva secures the Mortgage NOC and the buyer’s bank disburses the loan to the seller.'};
-    return {code:'D2', label:'Both have loans — buyer’s self-funding < seller’s loan (deadlock risk)', desc:'Buyer transfers whatever self-funds are available pre-registration. Post-registration, the buyer’s bank closes the seller’s loan and, once the Mortgage NOC and original documents are in hand, releases the remaining loan amount to the seller. Typically ~2 months; needs active bank coordination.'};
+    if(sellerLoanAmount <= selfContribution) return {code:'D1', label:'Both have loans — seller’s loan ≤ buyer’s self-contribution', desc:'Seller’s loan is small enough that the buyer’s self-contribution alone closes it pre-registration; the seller retains whatever’s left over. After registration, Truva secures the Mortgage NOC and the buyer’s bank disburses the full loan amount to the seller in one go.'};
+    return {code:'D2', label:'Both have loans — seller’s loan > buyer’s self-contribution (deadlock risk)', desc:'Buyer’s self-contribution isn’t enough to close the seller’s loan on its own, so the buyer’s bank loan closes it in two tranches after registration: the first tranche covers the remaining shortfall on the seller’s loan; once that’s closed and the Mortgage NOC + original documents are in hand, the second tranche (the rest of the loan) goes straight to the seller. Typically ~2 months; needs active bank coordination.'};
   }
 
   function buildMilestones(ctx){
@@ -664,7 +664,7 @@
     } else if(scenario==='D1'){
       preRegBuyerToSeller = {label:'Self-Contribution (all self-funds)', amount:selfContribution, flow:'Buyer → Seller', note:`Seller uses ${inr(sellerLoanAmount)} of this to close their own loan and retains the balance.`};
     } else if(scenario==='D2'){
-      preRegBuyerToSeller = {label:'Self-Contribution (whatever funds available)', amount:selfContribution, flow:'Buyer → Seller', note:'May not fully cover the seller’s outstanding loan — the remainder is closed post-registration by the buyer’s bank.'};
+      preRegBuyerToSeller = {label:'Self-Contribution (whatever funds available)', amount:selfContribution, flow:'Buyer → Seller’s Loan Account', note:`Applied toward the seller’s loan — covers ${inr(selfContribution)} of the ${inr(sellerLoanAmount)} owed. The remaining ${inr(Math.max(sellerLoanAmount-selfContribution,0))} is closed post-registration by the first tranche of the buyer’s loan.`};
     }
     if(preRegBuyerToSeller) preRegPayments.push(preRegBuyerToSeller);
     items.push({title:'Pre-Registration', timing:'T−2 days and earlier', payments:preRegPayments, notes:[]});
@@ -693,10 +693,11 @@
       } else if(scenario==='D1'){
         postPayments.push({label:'Loan Disbursement', amount:loanAmount, flow:'Buyer’s Bank → Seller', note:'Released once the Mortgage NOC and seller’s original documents reach the buyer’s bank.'});
       } else if(scenario==='D2'){
-        const closeLoan = Math.min(loanAmount, sellerLoanAmount);
-        const remainder = loanAmount - closeLoan;
-        postPayments.push({label:'Loan Disbursement — closes seller’s loan', amount:closeLoan, flow:'Buyer’s Bank → Seller’s Loan Account', note:'Buyer’s bank closes the seller’s existing loan directly, triggering the Closure Letter and document release.'});
-        if(remainder>0) postPayments.push({label:'Loan Disbursement — remaining balance', amount:remainder, flow:'Buyer’s Bank → Seller', note:'Released once the Mortgage NOC and seller’s original documents reach the buyer’s bank.'});
+        const shortfall = Math.max(sellerLoanAmount - selfContribution, 0); // still owed on seller's loan after self-contribution
+        const tranche1 = Math.min(loanAmount, shortfall);
+        const tranche2 = loanAmount - tranche1;
+        postPayments.push({label:'Loan Disbursement — Tranche 1 (closes seller’s loan)', amount:tranche1, flow:'Buyer’s Bank → Seller’s Loan Account', note:'Covers the shortfall left on the seller’s loan after the buyer’s self-contribution, triggering the Closure Letter and document release.'});
+        if(tranche2>0) postPayments.push({label:'Loan Disbursement — Tranche 2 (to seller)', amount:tranche2, flow:'Buyer’s Bank → Seller', note:'Released once the seller’s loan is fully closed and the Mortgage NOC + original documents reach the buyer’s bank.'});
         postNotes.push('Deadlock-risk case — typically ~2 months, needs active, patient bank coordination.');
       }
       items.push({title:'Post-Registration — Loan Disbursement', timing: scenario==='D2' ? '~2 months typical' : '~2 days after registration', payments:postPayments, notes:postNotes});
@@ -830,7 +831,7 @@
     `;
 
     const buyerHasLoan = loanPct>0;
-    const scenario = buildScenario(buyerHasLoan, sellerHasLoan, selfFundedTotal, sellerLoanAmount);
+    const scenario = buildScenario(buyerHasLoan, sellerHasLoan, selfContribution, sellerLoanAmount);
     document.getElementById('scenarioTag').textContent = scenario.code;
     document.getElementById('scenarioDesc').innerHTML = `<strong>${scenario.label}.</strong> ${scenario.desc}`;
 
@@ -838,7 +839,10 @@
       warnings.push('Seller’s outstanding loan exceeds the buyer’s self-contribution — the payoff won’t fully close on self-funds alone.');
     }
     if(scenario.code==='D2'){
-      warnings.push('Deadlock-risk case: buyer’s self-funding is less than the seller’s outstanding loan. Expect ~2 months and active bank coordination.');
+      warnings.push('Deadlock-risk case: buyer’s self-contribution is less than the seller’s outstanding loan, so the buyer’s loan has to close it in two tranches after registration. Expect ~2 months and active bank coordination.');
+      if(loanAmount < (sellerLoanAmount - selfContribution)){
+        warnings.push(`Even the buyer’s full loan amount doesn’t cover the shortfall on the seller’s loan (self-contribution + loan = ${inr(selfContribution+loanAmount)} vs. seller’s loan = ${inr(sellerLoanAmount)}) — the numbers don’t close as they stand.`);
+      }
     }
     document.getElementById('warningsBox').innerHTML = warnings.map(w=>`<div class="warning">${w}</div>`).join('');
 
