@@ -562,9 +562,11 @@
     const items = [];
 
     const blockingPayments = [];
-    if(token>0) blockingPayments.push({label:'Token / Blocking Amount', amount:token, flow:'Buyer → Seller', note:'Coordinated via BEX at the time of blocking, before the Tripartite MoU is signed.'});
     if(residency==='nri' && token>0){
-      blockingPayments.push({label:'TDS on Token', amount:tdsOnToken, flow:'Buyer → Government (Sec. 195)', note:'Due by the 7th of the month following the token payment (e.g. token paid 15 Oct → TDS due by 7 Nov). Always at the standard rate — paid before any LDC can be in hand.'});
+      blockingPayments.push({label:'Token / Blocking Amount (gross)', amount:token, flow:'Buyer → Seller (net of TDS)', note:`Buyer commits ${inr(token)}; withholds TDS on Token from it and remits that to the government, so the seller actually receives the net amount — ${inr(token-tdsOnToken)}.`});
+      blockingPayments.push({label:'↳ TDS on Token (withheld from the token above)', amount:tdsOnToken, flow:'Buyer → Government (Sec. 195)', note:'Due by the 7th of the month following the token payment (e.g. token paid 15 Oct → TDS due by 7 Nov). Always at the standard rate — paid before any LDC can be in hand.'});
+    } else if(token>0){
+      blockingPayments.push({label:'Token / Blocking Amount', amount:token, flow:'Buyer → Seller', note:'Coordinated via BEX at the time of blocking, before the Tripartite MoU is signed.'});
     }
     items.push({title:'Blocking / Token Received', timing:'Deal start', payments:blockingPayments, notes: blockingPayments.length? [] : ['No token recorded for this deal.']});
 
@@ -701,11 +703,14 @@
         tdsOnRemainder = (av - token) * remainderRate.effective;
         tds = tdsOnToken + tdsOnRemainder;
         selfContributionLabel = 'Self-Contribution';
-        selfContribution = selfFundedTotal - token - tdsOnToken - tdsOnRemainder;
+        // Token is the gross figure and already carries its own TDS internally
+        // (seller nets Token − TDS-on-Token) — only the remainder's TDS is a
+        // separate deduction from the self-funded pool.
+        selfContribution = selfFundedTotal - token - tdsOnRemainder;
       } else {
         tds = tdsOnToken;
-        selfContributionLabel = 'Self-Contribution Amount (incl. Token)';
-        selfContribution = selfFundedTotal - tdsOnToken;
+        selfContributionLabel = 'Self-Contribution (provisional — remainder TDS pending certificate)';
+        selfContribution = selfFundedTotal - token;
       }
     }
 
@@ -714,9 +719,12 @@
     }
 
     const scheduleRows = [];
-    if(token>0) scheduleRows.push({label:'Token', amount:token});
+    if(token>0) scheduleRows.push({label: residency==='nri' ? 'Token (gross)' : 'Token', amount:token});
     if(residency==='nri'){
-      scheduleRows.push({label:'TDS on Token', amount:tdsOnToken});
+      if(token>0){
+        scheduleRows.push({label:'↳ TDS on Token (carved out of Token above, not additional)', amount:tdsOnToken, sub:true});
+        scheduleRows.push({label:'↳ Net Token to Seller', amount:token-tdsOnToken, sub:true});
+      }
       if(tdsOnRemainder!==null) scheduleRows.push({label:'TDS on Remainder', amount:tdsOnRemainder});
     } else {
       scheduleRows.push({label:tdsLabel, amount:tds});
@@ -726,9 +734,9 @@
     scheduleRows.push({label:'Agreement Value', amount:av, bold:true});
 
     document.getElementById('scheduleBody').innerHTML = scheduleRows.map(r=>`
-      <tr${r.bold?' class="total"':''}>
-        <td>${r.label}</td>
-        <td class="num">${inr(r.amount)}${shortForm(r.amount)?`<span class="amt-short">${shortForm(r.amount)}</span>`:''}</td>
+      <tr${r.bold?' class="total"':''}${r.sub?' style="color:var(--ink-soft);font-size:13px;"':''}>
+        <td${r.sub?' style="padding-left:18px;border-bottom:none;padding-top:0;padding-bottom:6px;"':''}>${r.label}</td>
+        <td class="num"${r.sub?' style="border-bottom:none;padding-top:0;padding-bottom:6px;"':''}>${inr(r.amount)}${shortForm(r.amount)?`<span class="amt-short">${shortForm(r.amount)}</span>`:''}</td>
       </tr>
     `).join('');
 
@@ -736,9 +744,9 @@
     if(residency==='resident'){
       checkSum = token + tds + selfContribution + loanAmount;
     } else if(tdsOnRemainder!==null){
-      checkSum = token + tdsOnToken + tdsOnRemainder + selfContribution + loanAmount;
+      checkSum = token + tdsOnRemainder + selfContribution + loanAmount;
     } else {
-      checkSum = tdsOnToken + selfContribution + loanAmount;
+      checkSum = token + selfContribution + loanAmount;
     }
     const balanced = Math.abs(checkSum - av) < 1;
     const checkRow = document.getElementById('checkRow');
@@ -784,7 +792,8 @@
     const tdsBuildCard = document.getElementById('tdsBuildCard');
     if(residency==='nri'){
       tdsBuildCard.style.display='block';
-      let html = rateBlock('TDS on Token (always the standard rate — paid before any certificate can exist)', BASE_RATE, token);
+      let html = `<p class="card-sub" style="margin:0 0 12px;">Token is a gross figure — TDS on Token is withheld from it, not paid on top. The seller nets Token − TDS on Token.</p>`;
+      html += rateBlock('TDS on Token (always the standard rate — paid before any certificate can exist)', BASE_RATE, token);
       if(ldcStatus==='none'){
         html += rateBlock('TDS on Remainder (no LDC — standard rate on the balance)', BASE_RATE, av-token);
       } else if(ldcStatus==='received' && ldcRate>0){
