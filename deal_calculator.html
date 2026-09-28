@@ -933,27 +933,39 @@
     ZOHO.embeddedApp.init();
   }
 
+  // Field maps per module — Deals (labelled "Bid") carries the per-transaction
+  // Selling Price / Blocking Amount for the specific bid that got the blocking,
+  // which is the authoritative source once a property has more than one bid.
+  // Products (labelled "Property") is kept as a fallback for whichever page
+  // this widget ends up installed on.
+  const ZOHO_FIELD_MAPS = {
+    Deals: { sellingPrice: ['Selling_Price'], blocking: ['Blocking_Amount'], label: ['Deal_Name'], noun: 'this Bid' },
+    Products: { sellingPrice: ['Selling_Price', 'Registered_Selling_Price'], blocking: ['Blocking_Amount', 'Token'], label: ['Product_Name'], noun: 'this Property' }
+  };
+
   async function loadFromZohoRecord(data){
-    if(!data || !data.EntityId || data.Entity !== 'Products') return; // only pre-fill when opened from a Property record
-    const resp = await ZOHO.CRM.API.getRecord({ Entity: 'Products', RecordID: data.EntityId });
+    const map = data && ZOHO_FIELD_MAPS[data.Entity];
+    if(!data || !data.EntityId || !map) return; // only pre-fill when opened from a Bid or Property record
+    const resp = await ZOHO.CRM.API.getRecord({ Entity: data.Entity, RecordID: data.EntityId });
     const record = resp && resp.data && resp.data[0];
     if(!record) return;
 
-    const sellingPrice = record.Selling_Price || record.Registered_Selling_Price;
-    const blocking = record.Blocking_Amount || record.Token;
+    const firstPresent = fields => fields.map(f => record[f]).find(v => v !== undefined && v !== null && v !== '');
+    const sellingPrice = firstPresent(map.sellingPrice);
+    const blocking = firstPresent(map.blocking);
+    const label = firstPresent(map.label);
     const pulled = [];
 
     if(sellingPrice){ document.getElementById('av').value = sellingPrice; pulled.push(`Selling Price ${inr(sellingPrice)}`); }
     if(blocking){ document.getElementById('token').value = blocking; pulled.push(`Blocking Amount ${inr(blocking)}`); }
-    if(record.Product_Name){ document.getElementById('dealLabel').value = record.Product_Name; }
+    if(label){ document.getElementById('dealLabel').value = label; }
 
     const banner = document.getElementById('zohoBanner');
+    banner.style.display = 'block';
     if(pulled.length){
-      banner.style.display = 'block';
-      banner.innerHTML = `<strong>Pulled from Zoho:</strong> ${record.Product_Name || 'this Property'} — ${pulled.join(', ')}. Fields below are still editable — Resident/NRI status, loan details and funding split aren't tracked in Zoho, so confirm those manually.`;
+      banner.innerHTML = `<strong>Pulled from Zoho (${data.Entity === 'Deals' ? 'Bid' : 'Property'}):</strong> ${label || map.noun} — ${pulled.join(', ')}. Fields below are still editable — Resident/NRI status, loan details and funding split aren't tracked in Zoho, so confirm those manually.`;
     } else {
-      banner.style.display = 'block';
-      banner.innerHTML = `<strong>Opened from Zoho:</strong> ${record.Product_Name || 'this Property'} has no Selling Price or Blocking Amount on file yet — enter the deal parameters manually below.`;
+      banner.innerHTML = `<strong>Opened from Zoho:</strong> ${label || map.noun} has no Selling Price or Blocking Amount on file yet — enter the deal parameters manually below.`;
     }
     calculate();
   }
